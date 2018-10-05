@@ -3,6 +3,8 @@ title: "Filter to Toronto reviews"
 output: html_notebook
 ---
 
+We will subset the different datasets to Toronto businesses.
+
 # Libraries
 
 ```{r}
