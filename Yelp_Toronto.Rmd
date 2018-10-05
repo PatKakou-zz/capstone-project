@@ -1,0 +1,72 @@
+---
+title: "Filter to Toronto reviews"
+output: html_notebook
+---
+
+# Libraries
+
+```{r}
+library(tidyverse)
+```
+
+# Loading the yelp datasets
+
+```{r}
+business <- readRDS("business_data.rds")
+review <- readRDS("review_data.rds")
+user <- readRDS("user_data.rds")
+checkin <- readRDS("checkin_data.rds")
+tip <- readRDS("tip_data.rds")
+photo <- readRDS("photo_data.rds")
+```
+
+# Filter to businesses in Toronto
+
+I decided to create 2 data for Toronton businesses. One with the features "attribute" and "hours" (will remain in R object for later use) and another without those features (to be converted in csv file). 
+
+```{r}
+toronto_business <- business[which(business$city == "Toronto"),]
+
+toronto_business_2 <- business %>%
+                        select(-attributes, -hours) %>%
+                        filter(city == "Toronto")
+```
+
+
+# Filter review on Toronto Businesses
+
+I will do a semi-join on the column "business_id" between review and business to get reviews done on toronto businesses. And so one for the other datasets except checkin.
+
+```{r}
+toronto_review <- semi_join(review, toronto_business, by = "business_id")
+```
+
+# Toronto tips
+
+```{r}
+toronto_tip <- semi_join(tip, toronto_business, by = "business_id")
+```
+
+# Toronto reviewers : User who made reviews on Toronto Businesses
+
+```{r}
+toronto_user <- user %>%
+                  semi_join(toronto_review, by = "user_id")
+```
+
+# Toronto business photo
+
+```{r}
+toronto_photo <- semi_join(photo, toronto_business, by = "business_id")
+```
+
+# Save in csv files
+
+```{r}
+write_csv(toronto_business_2, "yelp_toronto_business.csv")
+write_csv(toronto_photo, "yelp_toronto_photo.csv")
+write_csv(toronto_review, "yelp_toronto_review.csv")
+write_csv(toronto_tip, "yelp_toronto_tip.csv")
+write_csv(toronto_user, "yelp_toronto_user.csv")
+```
+

@@ -1,0 +1,87 @@
+---
+title: "Extract and convert Yelp Dataset JSON to R object"
+output: html_notebook
+---
+
+# Libraries
+
+```{r}
+library(jsonlite)
+```
+
+# Yelp Dataset JSON: for more details check that link "https://www.yelp.com/dataset/documentation/main"
+
+Each file is composed of a single object type, one JSON-object per-line.  
+* business.json: Contains business data including location data, attributes, and categories.  
+* review.json: Contains full review text data including the user_id that wrote the review and the business_id the review is written for.  
+* user.json: User data including the user's friend mapping and all the metadata associated with the user.  
+* checkin.json: Checkins on a business.  
+* tip.json: Tips written by a user on a business. Tips are shorter than reviews and tend to convey quick suggestions.  
+* photo.json: Contains photo data including the caption and classification (one of "food", "drink", "menu", "inside" or "outside").  
+
+
+# Extract JSON files from a tar archive
+
+```{r}
+untar("yelp_dataset.tar", list = FALSE, exdir = '.')
+```
+
+# Convert json file to R object
+
+We can use 'fromJSON()' function from 'jsonlite' package to import most of the typical JSON files below.  
+However, when we run the above command we would actually get an error.
+This is because this JSON file turned out to be something called 'NDJSON (Newline delimited JSON)', which means there are multiple JSON values inside this file and each of the JSON values is considered as an independent object.   
+In the particular case of the business file, each business information makes up one single JSON value therefore there are many JSON values inside of this JSON file. This could be used often in data streaming situations where each JSON data can be separated from other parts of the file so that each JSON data can be processed without waiting for the whole document to load.
+
+Anyway, 'jsonlite' actually has a function to deal with this 'NDJSON' file type with 'stream_in()' function, so we can use it instead like below.
+Note that you need to use 'file()' function to create a 'connection' for accessing to the files on your disk when you use 'stream_in()' function.
+
+## business data
+
+```{r}
+yelp_business <- stream_in(file(description ="yelp_academic_dataset_business.json"))
+
+saveRDS(yelp_business, "business_data.rds")
+```
+
+## review text data
+
+```{r}
+yelp_review <- stream_in(file(description = "yelp_academic_dataset_review.json"))
+
+saveRDS(yelp_review, "review_data.rds")
+```
+
+
+## user data 
+
+```{r}
+yelp_user <- stream_in(file(description ="yelp_academic_dataset_user.json"))
+
+saveRDS(yelp_user, "user_data.rds")
+```
+
+## checkins data
+
+```{r}
+yelp_checkin <- stream_in(file(description ="yelp_academic_dataset_checkin.json"))
+
+saveRDS(yelp_checkin, "checkin_data.rds")
+```
+
+## photo data
+
+```{r}
+yelp_photo <- stream_in(file(description ="yelp_academic_dataset_photo.json"))
+
+saveRDS(yelp_photo, "photo_data.rds")
+```
+
+## tips data
+
+```{r}
+yelp_tip <- stream_in(file(description ="yelp_academic_dataset_tip.json"))
+
+saveRDS(yelp_tip, "tip_data.rds")
+```
+
