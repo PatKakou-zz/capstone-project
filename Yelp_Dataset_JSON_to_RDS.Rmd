@@ -3,7 +3,7 @@ title: "Extract and Convert Yelp Dataset from JSON to R object"
 output: html_notebook
 ---
 
-The purpose of this notebook is to unzip/untar the zip file I dowanloaded from Yelp website. Then, I will convert each JSON file in a R object for my project. 
+The purpose of this notebook is to unzip/untar the zip file I downloaded from Yelp website. Then, I will convert each JSON file in a R object for my project. 
 
 # Libraries
 
