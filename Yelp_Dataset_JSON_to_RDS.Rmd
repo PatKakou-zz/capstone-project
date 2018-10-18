@@ -3,17 +3,17 @@ title: "Extract and Convert Yelp Dataset from JSON to R object"
 output: html_notebook
 ---
 
-The purpose of this notebook is to unzip/untar the zip file I downloaded from Yelp website. Then, I will convert each JSON file in a R object for my project. 
+The purpose of this notebook is to unzip/untar the zip file I downloaded from Yelp website (<https://www.yelp.com/dataset>). Then, I will convert each JSON file in a R object for my project. 
 
 # Libraries
 
 ```{r}
-# loading jsonlite library
+library(tidyverse)
 library(jsonlite)
 ```
 
-
-# Yelp Dataset JSON: for more details check that link "https://www.yelp.com/dataset/documentation/main"
+# Yelp Dataset JSON: for more details about the data description check the link below  
+<https://www.yelp.com/dataset/documentation/main>
 
 Each file is composed of a single object type, one JSON-object per-line.  
 * business.json: Contains business data including location data, attributes, and categories.  
@@ -47,6 +47,7 @@ yelp_business <- stream_in(file(description ="yelp_academic_dataset_business.jso
 
 saveRDS(yelp_business, "business_data.rds")
 ```
+
 
 ## review text data
 
@@ -88,4 +89,7 @@ yelp_tip <- stream_in(file(description ="yelp_academic_dataset_tip.json"))
 
 saveRDS(yelp_tip, "tip_data.rds")
 ```
+
+All the data sets have been converted to R objects.
+The next step is to subset to businesses of Toronto. That will be done on Yelp_Toronto file.
 
