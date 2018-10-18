@@ -1699,7 +1699,7 @@ $(document).ready(function () {
 
 
 <!-- rnb-text-begin -->
-<p>We will subset the different datasets to Toronto businesses.</p>
+<p>We will subset the different datasets to get observations related to Toronto businesses.</p>
 <div id="libraries" class="section level1">
 <h1>Libraries</h1>
 <!-- rnb-text-end -->
@@ -1714,14 +1714,14 @@ $(document).ready(function () {
 <h1>Loading the yelp datasets</h1>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYnVzaW5lc3MgPC0gcmVhZFJEUyhcImJ1c2luZXNzX2RhdGEucmRzXCIpXG5yZXZpZXcgPC0gcmVhZFJEUyhcInJldmlld19kYXRhLnJkc1wiKVxudXNlciA8LSByZWFkUkRTKFwidXNlcl9kYXRhLnJkc1wiKVxuY2hlY2tpbiA8LSByZWFkUkRTKFwiY2hlY2tpbl9kYXRhLnJkc1wiKVxudGlwIDwtIHJlYWRSRFMoXCJ0aXBfZGF0YS5yZHNcIilcbnBob3RvIDwtIHJlYWRSRFMoXCJwaG90b19kYXRhLnJkc1wiKVxuYGBgIn0= -->
-<pre class="r"><code>business &lt;- readRDS(&quot;business_data.rds&quot;)
-review &lt;- readRDS(&quot;review_data.rds&quot;)
-user &lt;- readRDS(&quot;user_data.rds&quot;)
-checkin &lt;- readRDS(&quot;checkin_data.rds&quot;)
-tip &lt;- readRDS(&quot;tip_data.rds&quot;)
-photo &lt;- readRDS(&quot;photo_data.rds&quot;)</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxucmV2aWV3IDwtIHJlYWRfcmRzKFwicmV2aWV3X2RhdGEucmRzXCIpXG5cbmBgYCJ9 -->
+<pre class="r"><code>review &lt;- read_rds(&quot;review_data.rds&quot;)
+</code></pre>
 <!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiRXJyb3IgaW4gcmVhZFJEUyhwYXRoKSA6IFxuICBSZWFkSXRlbTogdW5rbm93biB0eXBlIDExOCwgcGVyaGFwcyB3cml0dGVuIGJ5IGxhdGVyIHZlcnNpb24gb2YgUlxuIn0= -->
+<pre><code>Error in readRDS(path) : 
+  ReadItem: unknown type 118, perhaps written by later version of R</code></pre>
+<!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 </div>
@@ -1730,12 +1730,10 @@ photo &lt;- readRDS(&quot;photo_data.rds&quot;)</code></pre>
 <p>I decided to create 2 data for Toronton businesses. One with the features “attribute” and “hours” (will remain in R object for later use) and another without those features (to be converted in csv file).</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxudG9yb250b19idXNpbmVzcyA8LSBidXNpbmVzc1t3aGljaChidXNpbmVzcyRjaXR5ID09IFwiVG9yb250b1wiKSxdXG5cbnRvcm9udG9fYnVzaW5lc3NfMiA8LSBidXNpbmVzcyAlPiVcbiAgICAgICAgICAgICAgICAgICAgICAgIHNlbGVjdCgtYXR0cmlidXRlcywgLWhvdXJzKSAlPiVcbiAgICAgICAgICAgICAgICAgICAgICAgIGZpbHRlcihjaXR5ID09IFwiVG9yb250b1wiKVxuYGBgIn0= -->
-<pre class="r"><code>toronto_business &lt;- business[which(business$city == &quot;Toronto&quot;),]
-
-toronto_business_2 &lt;- business %&gt;%
-                        select(-attributes, -hours) %&gt;%
-                        filter(city == &quot;Toronto&quot;)</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYGBgclxudG9yb250b19idXNpbmVzcyA8LSBidXNpbmVzc1t3aGljaChidXNpbmVzcyRjaXR5ID09IFxcVG9yb250b1xcKSxdXG5cbnRvcm9udG9fYnVzaW5lc3NfMiA8LSBidXNpbmVzcyAlPiVcbiAgICAgICAgICAgICAgICAgICAgICAgIHNlbGVjdCgtYXR0cmlidXRlcywgLWhvdXJzKSAlPiVcbiAgICAgICAgICAgICAgICAgICAgICAgIGZpbHRlcihjaXR5ID09IFxcVG9yb250b1xcKVxuYGBgXG5gYGAifQ== -->
+<p><code>r</code>r toronto_business &lt;- business[which(business$city == ),]</p>
+<p>toronto_business_2 &lt;- business %&gt;% select(-attributes, -hours) %&gt;% filter(city == )</p>
+<pre><code></code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
@@ -1745,8 +1743,9 @@ toronto_business_2 &lt;- business %&gt;%
 <p>I will do a semi-join on the column “business_id” between review and business to get reviews done on toronto businesses. And so one for the other datasets except checkin.</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxudG9yb250b19yZXZpZXcgPC0gc2VtaV9qb2luKHJldmlldywgdG9yb250b19idXNpbmVzcywgYnkgPSBcImJ1c2luZXNzX2lkXCIpXG5gYGAifQ== -->
-<pre class="r"><code>toronto_review &lt;- semi_join(review, toronto_business, by = &quot;business_id&quot;)</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYGBgclxudG9yb250b19yZXZpZXcgPC0gc2VtaV9qb2luKHJldmlldywgdG9yb250b19idXNpbmVzcywgYnkgPSBcXGJ1c2luZXNzX2lkXFwpXG5gYGBcbmBgYCJ9 -->
+<p><code>r</code>r toronto_review &lt;- semi_join(review, toronto_business, by = _id)</p>
+<pre><code></code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
@@ -1755,8 +1754,9 @@ toronto_business_2 &lt;- business %&gt;%
 <h1>Toronto tips</h1>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxudG9yb250b190aXAgPC0gc2VtaV9qb2luKHRpcCwgdG9yb250b19idXNpbmVzcywgYnkgPSBcImJ1c2luZXNzX2lkXCIpXG5gYGAifQ== -->
-<pre class="r"><code>toronto_tip &lt;- semi_join(tip, toronto_business, by = &quot;business_id&quot;)</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYGBgclxudG9yb250b190aXAgPC0gc2VtaV9qb2luKHRpcCwgdG9yb250b19idXNpbmVzcywgYnkgPSBcXGJ1c2luZXNzX2lkXFwpXG5gYGBcbmBgYCJ9 -->
+<p><code>r</code>r toronto_tip &lt;- semi_join(tip, toronto_business, by = _id)</p>
+<pre><code></code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
@@ -1765,9 +1765,9 @@ toronto_business_2 &lt;- business %&gt;%
 <h1>Toronto reviewers : User who made reviews on Toronto Businesses</h1>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxudG9yb250b191c2VyIDwtIHVzZXIgJT4lXG4gICAgICAgICAgICAgICAgICBzZW1pX2pvaW4odG9yb250b19yZXZpZXcsIGJ5ID0gXCJ1c2VyX2lkXCIpXG5gYGAifQ== -->
-<pre class="r"><code>toronto_user &lt;- user %&gt;%
-                  semi_join(toronto_review, by = &quot;user_id&quot;)</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYGBgclxudG9yb250b191c2VyIDwtIHVzZXIgJT4lXG4gICAgICAgICAgICAgICAgICBzZW1pX2pvaW4odG9yb250b19yZXZpZXcsIGJ5ID0gXFx1c2VyX2lkXFwpXG5gYGBcbmBgYCJ9 -->
+<p><code>r</code>r toronto_user &lt;- user %&gt;% semi_join(toronto_review, by = _id)</p>
+<pre><code></code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
@@ -1776,29 +1776,41 @@ toronto_business_2 &lt;- business %&gt;%
 <h1>Toronto business photo</h1>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxudG9yb250b19waG90byA8LSBzZW1pX2pvaW4ocGhvdG8sIHRvcm9udG9fYnVzaW5lc3MsIGJ5ID0gXCJidXNpbmVzc19pZFwiKVxuYGBgIn0= -->
-<pre class="r"><code>toronto_photo &lt;- semi_join(photo, toronto_business, by = &quot;business_id&quot;)</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYGBgclxudG9yb250b19waG90byA8LSBzZW1pX2pvaW4ocGhvdG8sIHRvcm9udG9fYnVzaW5lc3MsIGJ5ID0gXFxidXNpbmVzc19pZFxcKVxuYGBgXG5gYGAifQ== -->
+<p><code>r</code>r toronto_photo &lt;- semi_join(photo, toronto_business, by = _id)</p>
+<pre><code></code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 </div>
-<div id="save-in-csv-files" class="section level1">
-<h1>Save in csv files</h1>
+<div id="saving-in-csv-files" class="section level1">
+<h1>Saving in csv files</h1>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxud3JpdGVfY3N2KHRvcm9udG9fYnVzaW5lc3NfMiwgXCJ5ZWxwX3Rvcm9udG9fYnVzaW5lc3MuY3N2XCIpXG53cml0ZV9jc3YodG9yb250b19waG90bywgXCJ5ZWxwX3Rvcm9udG9fcGhvdG8uY3N2XCIpXG53cml0ZV9jc3YodG9yb250b19yZXZpZXcsIFwieWVscF90b3JvbnRvX3Jldmlldy5jc3ZcIilcbndyaXRlX2Nzdih0b3JvbnRvX3RpcCwgXCJ5ZWxwX3Rvcm9udG9fdGlwLmNzdlwiKVxud3JpdGVfY3N2KHRvcm9udG9fdXNlciwgXCJ5ZWxwX3Rvcm9udG9fdXNlci5jc3ZcIilcbmBgYCJ9 -->
-<pre class="r"><code>write_csv(toronto_business_2, &quot;yelp_toronto_business.csv&quot;)
-write_csv(toronto_photo, &quot;yelp_toronto_photo.csv&quot;)
-write_csv(toronto_review, &quot;yelp_toronto_review.csv&quot;)
-write_csv(toronto_tip, &quot;yelp_toronto_tip.csv&quot;)
-write_csv(toronto_user, &quot;yelp_toronto_user.csv&quot;)</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYGBgclxud3JpdGVfY3N2KHRvcm9udG9fYnVzaW5lc3NfMiwgXFx5ZWxwX3Rvcm9udG9fYnVzaW5lc3MuY3N2XFwpXG53cml0ZV9jc3YodG9yb250b19waG90bywgXFx5ZWxwX3Rvcm9udG9fcGhvdG8uY3N2XFwpXG53cml0ZV9jc3YodG9yb250b19yZXZpZXcsIFxceWVscF90b3JvbnRvX3Jldmlldy5jc3ZcXClcbndyaXRlX2Nzdih0b3JvbnRvX3RpcCwgXFx5ZWxwX3Rvcm9udG9fdGlwLmNzdlxcKVxud3JpdGVfY3N2KHRvcm9udG9fdXNlciwgXFx5ZWxwX3Rvcm9udG9fdXNlci5jc3ZcXClcbmBgYFxuYGBgIn0= -->
+<p><code>r</code>r write_csv(toronto_business_2, _toronto_business.csv) write_csv(toronto_photo, _toronto_photo.csv) write_csv(toronto_review, _toronto_review.csv) write_csv(toronto_tip, _toronto_tip.csv) write_csv(toronto_user, _toronto_user.csv)</p>
+<pre><code></code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+</div>
+<div id="saving-in-r-object" class="section level1">
+<h1>Saving in R object</h1>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuI3NhdmVSRFModG9yb250b19idXNpbmVzc18yLCBcInllbHBfdG9yb250b19idXNpbmVzcy5yZHNcIilcbiNzYXZlUkRTKHRvcm9udG9fcGhvdG8sIFwieWVscF90b3JvbnRvX3Bob3RvLnJkc1wiKVxuI3NhdmVSRFModG9yb250b19yZXZpZXcsIFwieWVscF90b3JvbnRvX3Jldmlldy5yZHNcIilcbiNzYXZlUkRTKHRvcm9udG9fdGlwLCBcInllbHBfdG9yb250b190aXAucmRzXCIpXG4jc2F2ZVJEUyh0b3JvbnRvX3VzZXIsIFwieWVscF90b3JvbnRvX3VzZXIucmRzXCIpXG5gYGAifQ== -->
+<pre class="r"><code>#saveRDS(toronto_business_2, &quot;yelp_toronto_business.rds&quot;)
+#saveRDS(toronto_photo, &quot;yelp_toronto_photo.rds&quot;)
+#saveRDS(toronto_review, &quot;yelp_toronto_review.rds&quot;)
+#saveRDS(toronto_tip, &quot;yelp_toronto_tip.rds&quot;)
+#saveRDS(toronto_user, &quot;yelp_toronto_user.rds&quot;)</code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 <!-- rnb-text-end -->
 </div>
 
-<div id="rmd-source-code">LS0tDQp0aXRsZTogIkZpbHRlciB0byBUb3JvbnRvIHJldmlld3MiDQpvdXRwdXQ6IGh0bWxfbm90ZWJvb2sNCi0tLQ0KDQpXZSB3aWxsIHN1YnNldCB0aGUgZGlmZmVyZW50IGRhdGFzZXRzIHRvIFRvcm9udG8gYnVzaW5lc3Nlcy4NCg0KIyBMaWJyYXJpZXMNCg0KYGBge3J9DQpsaWJyYXJ5KHRpZHl2ZXJzZSkNCmBgYA0KDQojIExvYWRpbmcgdGhlIHllbHAgZGF0YXNldHMNCg0KYGBge3J9DQpidXNpbmVzcyA8LSByZWFkUkRTKCJidXNpbmVzc19kYXRhLnJkcyIpDQpyZXZpZXcgPC0gcmVhZFJEUygicmV2aWV3X2RhdGEucmRzIikNCnVzZXIgPC0gcmVhZFJEUygidXNlcl9kYXRhLnJkcyIpDQpjaGVja2luIDwtIHJlYWRSRFMoImNoZWNraW5fZGF0YS5yZHMiKQ0KdGlwIDwtIHJlYWRSRFMoInRpcF9kYXRhLnJkcyIpDQpwaG90byA8LSByZWFkUkRTKCJwaG90b19kYXRhLnJkcyIpDQpgYGANCg0KIyBGaWx0ZXIgdG8gYnVzaW5lc3NlcyBpbiBUb3JvbnRvDQoNCkkgZGVjaWRlZCB0byBjcmVhdGUgMiBkYXRhIGZvciBUb3JvbnRvbiBidXNpbmVzc2VzLiBPbmUgd2l0aCB0aGUgZmVhdHVyZXMgImF0dHJpYnV0ZSIgYW5kICJob3VycyIgKHdpbGwgcmVtYWluIGluIFIgb2JqZWN0IGZvciBsYXRlciB1c2UpIGFuZCBhbm90aGVyIHdpdGhvdXQgdGhvc2UgZmVhdHVyZXMgKHRvIGJlIGNvbnZlcnRlZCBpbiBjc3YgZmlsZSkuIA0KDQpgYGB7cn0NCnRvcm9udG9fYnVzaW5lc3MgPC0gYnVzaW5lc3Nbd2hpY2goYnVzaW5lc3MkY2l0eSA9PSAiVG9yb250byIpLF0NCg0KdG9yb250b19idXNpbmVzc18yIDwtIGJ1c2luZXNzICU+JQ0KICAgICAgICAgICAgICAgICAgICAgICAgc2VsZWN0KC1hdHRyaWJ1dGVzLCAtaG91cnMpICU+JQ0KICAgICAgICAgICAgICAgICAgICAgICAgZmlsdGVyKGNpdHkgPT0gIlRvcm9udG8iKQ0KYGBgDQoNCg0KIyBGaWx0ZXIgcmV2aWV3IG9uIFRvcm9udG8gQnVzaW5lc3Nlcw0KDQpJIHdpbGwgZG8gYSBzZW1pLWpvaW4gb24gdGhlIGNvbHVtbiAiYnVzaW5lc3NfaWQiIGJldHdlZW4gcmV2aWV3IGFuZCBidXNpbmVzcyB0byBnZXQgcmV2aWV3cyBkb25lIG9uIHRvcm9udG8gYnVzaW5lc3Nlcy4gQW5kIHNvIG9uZSBmb3IgdGhlIG90aGVyIGRhdGFzZXRzIGV4Y2VwdCBjaGVja2luLg0KDQpgYGB7cn0NCnRvcm9udG9fcmV2aWV3IDwtIHNlbWlfam9pbihyZXZpZXcsIHRvcm9udG9fYnVzaW5lc3MsIGJ5ID0gImJ1c2luZXNzX2lkIikNCmBgYA0KDQojIFRvcm9udG8gdGlwcw0KDQpgYGB7cn0NCnRvcm9udG9fdGlwIDwtIHNlbWlfam9pbih0aXAsIHRvcm9udG9fYnVzaW5lc3MsIGJ5ID0gImJ1c2luZXNzX2lkIikNCmBgYA0KDQojIFRvcm9udG8gcmV2aWV3ZXJzIDogVXNlciB3aG8gbWFkZSByZXZpZXdzIG9uIFRvcm9udG8gQnVzaW5lc3Nlcw0KDQpgYGB7cn0NCnRvcm9udG9fdXNlciA8LSB1c2VyICU+JQ0KICAgICAgICAgICAgICAgICAgc2VtaV9qb2luKHRvcm9udG9fcmV2aWV3LCBieSA9ICJ1c2VyX2lkIikNCmBgYA0KDQojIFRvcm9udG8gYnVzaW5lc3MgcGhvdG8NCg0KYGBge3J9DQp0b3JvbnRvX3Bob3RvIDwtIHNlbWlfam9pbihwaG90bywgdG9yb250b19idXNpbmVzcywgYnkgPSAiYnVzaW5lc3NfaWQiKQ0KYGBgDQoNCiMgU2F2ZSBpbiBjc3YgZmlsZXMNCg0KYGBge3J9DQp3cml0ZV9jc3YodG9yb250b19idXNpbmVzc18yLCAieWVscF90b3JvbnRvX2J1c2luZXNzLmNzdiIpDQp3cml0ZV9jc3YodG9yb250b19waG90bywgInllbHBfdG9yb250b19waG90by5jc3YiKQ0Kd3JpdGVfY3N2KHRvcm9udG9fcmV2aWV3LCAieWVscF90b3JvbnRvX3Jldmlldy5jc3YiKQ0Kd3JpdGVfY3N2KHRvcm9udG9fdGlwLCAieWVscF90b3JvbnRvX3RpcC5jc3YiKQ0Kd3JpdGVfY3N2KHRvcm9udG9fdXNlciwgInllbHBfdG9yb250b191c2VyLmNzdiIpDQpgYGANCg0K</div>
+<div id="rmd-source-code">LS0tDQp0aXRsZTogIkZpbHRlciB0byBUb3JvbnRvIHJldmlld3MiDQpvdXRwdXQ6IGh0bWxfbm90ZWJvb2sNCi0tLQ0KDQpXZSB3aWxsIHN1YnNldCB0aGUgZGlmZmVyZW50IGRhdGFzZXRzIHRvIGdldCBvYnNlcnZhdGlvbnMgcmVsYXRlZCB0byBUb3JvbnRvIGJ1c2luZXNzZXMuDQoNCiMgTGlicmFyaWVzDQoNCmBgYHtyfQ0KbGlicmFyeSh0aWR5dmVyc2UpDQpgYGANCg0KIyBMb2FkaW5nIHRoZSB5ZWxwIGRhdGFzZXRzDQoNCmBgYHtyfQ0KYnVzaW5lc3MgPC0gcmVhZF9yZHMoImJ1c2luZXNzX2RhdGEucmRzIikNCnJldmlldyA8LSByZWFkX3JkcygicmV2aWV3X2RhdGEucmRzIikNCnVzZXIgPC0gcmVhZF9yZHMoInVzZXJfZGF0YS5yZHMiKQ0KY2hlY2tpbiA8LSByZWFkX3JkcygiY2hlY2tpbl9kYXRhLnJkcyIpDQp0aXAgPC0gcmVhZF9yZHMoInRpcF9kYXRhLnJkcyIpDQpwaG90byA8LSByZWFkX3JkcygicGhvdG9fZGF0YS5yZHMiKQ0KYGBgDQoNCiMgRmlsdGVyIHRvIGJ1c2luZXNzZXMgaW4gVG9yb250bw0KDQpJIGRlY2lkZWQgdG8gY3JlYXRlIDIgZGF0YSBmb3IgVG9yb250b24gYnVzaW5lc3Nlcy4gT25lIHdpdGggdGhlIGZlYXR1cmVzICJhdHRyaWJ1dGUiIGFuZCAiaG91cnMiICh3aWxsIHJlbWFpbiBpbiBSIG9iamVjdCBmb3IgbGF0ZXIgdXNlKSBhbmQgYW5vdGhlciB3aXRob3V0IHRob3NlIGZlYXR1cmVzICh0byBiZSBjb252ZXJ0ZWQgaW4gY3N2IGZpbGUpLiANCg0KYGBge3J9DQp0b3JvbnRvX2J1c2luZXNzIDwtIGJ1c2luZXNzW3doaWNoKGJ1c2luZXNzJGNpdHkgPT0gIlRvcm9udG8iKSxdDQoNCnRvcm9udG9fYnVzaW5lc3NfMiA8LSBidXNpbmVzcyAlPiUNCiAgICAgICAgICAgICAgICAgICAgICAgIHNlbGVjdCgtYXR0cmlidXRlcywgLWhvdXJzKSAlPiUNCiAgICAgICAgICAgICAgICAgICAgICAgIGZpbHRlcihjaXR5ID09ICJUb3JvbnRvIikNCmBgYA0KDQoNCiMgRmlsdGVyIHJldmlldyBvbiBUb3JvbnRvIEJ1c2luZXNzZXMNCg0KSSB3aWxsIGRvIGEgc2VtaS1qb2luIG9uIHRoZSBjb2x1bW4gImJ1c2luZXNzX2lkIiBiZXR3ZWVuIHJldmlldyBhbmQgYnVzaW5lc3MgdG8gZ2V0IHJldmlld3MgZG9uZSBvbiB0b3JvbnRvIGJ1c2luZXNzZXMuIEFuZCBzbyBvbmUgZm9yIHRoZSBvdGhlciBkYXRhc2V0cyBleGNlcHQgY2hlY2tpbi4NCg0KYGBge3J9DQp0b3JvbnRvX3JldmlldyA8LSBzZW1pX2pvaW4ocmV2aWV3LCB0b3JvbnRvX2J1c2luZXNzLCBieSA9ICJidXNpbmVzc19pZCIpDQpgYGANCg0KIyBUb3JvbnRvIHRpcHMNCg0KYGBge3J9DQp0b3JvbnRvX3RpcCA8LSBzZW1pX2pvaW4odGlwLCB0b3JvbnRvX2J1c2luZXNzLCBieSA9ICJidXNpbmVzc19pZCIpDQpgYGANCg0KIyBUb3JvbnRvIHJldmlld2VycyA6IFVzZXIgd2hvIG1hZGUgcmV2aWV3cyBvbiBUb3JvbnRvIEJ1c2luZXNzZXMNCg0KYGBge3J9DQp0b3JvbnRvX3VzZXIgPC0gdXNlciAlPiUNCiAgICAgICAgICAgICAgICAgIHNlbWlfam9pbih0b3JvbnRvX3JldmlldywgYnkgPSAidXNlcl9pZCIpDQpgYGANCg0KIyBUb3JvbnRvIGJ1c2luZXNzIHBob3RvDQoNCmBgYHtyfQ0KdG9yb250b19waG90byA8LSBzZW1pX2pvaW4ocGhvdG8sIHRvcm9udG9fYnVzaW5lc3MsIGJ5ID0gImJ1c2luZXNzX2lkIikNCmBgYA0KDQojIFNhdmluZyBpbiBjc3YgZmlsZXMNCg0KYGBge3J9DQp3cml0ZV9jc3YodG9yb250b19idXNpbmVzc18yLCAieWVscF90b3JvbnRvX2J1c2luZXNzLmNzdiIpDQp3cml0ZV9jc3YodG9yb250b19waG90bywgInllbHBfdG9yb250b19waG90by5jc3YiKQ0Kd3JpdGVfY3N2KHRvcm9udG9fcmV2aWV3LCAieWVscF90b3JvbnRvX3Jldmlldy5jc3YiKQ0Kd3JpdGVfY3N2KHRvcm9udG9fdGlwLCAieWVscF90b3JvbnRvX3RpcC5jc3YiKQ0Kd3JpdGVfY3N2KHRvcm9udG9fdXNlciwgInllbHBfdG9yb250b191c2VyLmNzdiIpDQpgYGANCg0KIyBTYXZpbmcgaW4gUiBvYmplY3QNCg0KYGBge3J9DQojc2F2ZVJEUyh0b3JvbnRvX2J1c2luZXNzXzIsICJ5ZWxwX3Rvcm9udG9fYnVzaW5lc3MucmRzIikNCiNzYXZlUkRTKHRvcm9udG9fcGhvdG8sICJ5ZWxwX3Rvcm9udG9fcGhvdG8ucmRzIikNCiNzYXZlUkRTKHRvcm9udG9fcmV2aWV3LCAieWVscF90b3JvbnRvX3Jldmlldy5yZHMiKQ0KI3NhdmVSRFModG9yb250b190aXAsICJ5ZWxwX3Rvcm9udG9fdGlwLnJkcyIpDQojc2F2ZVJEUyh0b3JvbnRvX3VzZXIsICJ5ZWxwX3Rvcm9udG9fdXNlci5yZHMiKQ0KYGBgDQoNCg==</div>
 
 
 

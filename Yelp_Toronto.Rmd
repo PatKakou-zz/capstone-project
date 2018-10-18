@@ -3,7 +3,7 @@ title: "Filter to Toronto reviews"
 output: html_notebook
 ---
 
-We will subset the different datasets to Toronto businesses.
+We will subset the different datasets to get observations related to Toronto businesses.
 
 # Libraries
 
@@ -14,12 +14,12 @@ library(tidyverse)
 # Loading the yelp datasets
 
 ```{r}
-business <- readRDS("business_data.rds")
-review <- readRDS("review_data.rds")
-user <- readRDS("user_data.rds")
-checkin <- readRDS("checkin_data.rds")
-tip <- readRDS("tip_data.rds")
-photo <- readRDS("photo_data.rds")
+business <- read_rds("business_data.rds")
+review <- read_rds("review_data.rds")
+user <- read_rds("user_data.rds")
+checkin <- read_rds("checkin_data.rds")
+tip <- read_rds("tip_data.rds")
+photo <- read_rds("photo_data.rds")
 ```
 
 # Filter to businesses in Toronto
@@ -62,7 +62,7 @@ toronto_user <- user %>%
 toronto_photo <- semi_join(photo, toronto_business, by = "business_id")
 ```
 
-# Save in csv files
+# Saving in csv files
 
 ```{r}
 write_csv(toronto_business_2, "yelp_toronto_business.csv")
@@ -70,5 +70,15 @@ write_csv(toronto_photo, "yelp_toronto_photo.csv")
 write_csv(toronto_review, "yelp_toronto_review.csv")
 write_csv(toronto_tip, "yelp_toronto_tip.csv")
 write_csv(toronto_user, "yelp_toronto_user.csv")
+```
+
+# Saving in R object
+
+```{r}
+#saveRDS(toronto_business_2, "yelp_toronto_business.rds")
+#saveRDS(toronto_photo, "yelp_toronto_photo.rds")
+#saveRDS(toronto_review, "yelp_toronto_review.rds")
+#saveRDS(toronto_tip, "yelp_toronto_tip.rds")
+#saveRDS(toronto_user, "yelp_toronto_user.rds")
 ```
 
