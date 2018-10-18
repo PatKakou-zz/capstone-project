@@ -1,2 +1,2 @@
 # Capstone_yelp_review_toronto
-Sentiment Analysis on Yelp reviews
+Text classification and Sentiment Analysis on Yelp reviews
