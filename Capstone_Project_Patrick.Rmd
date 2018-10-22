@@ -11,6 +11,9 @@ library(tidyverse)
 library(descr)
 library(Amelia)
 library(lubridate)
+library(ggmap)
+library(quantreg)
+library(shapefiles)
 ```
 
 # Load Data
@@ -24,44 +27,93 @@ photo <- read_csv("yelp_toronto_photo.csv")
 ```
 
 # Exploratory Data Analysis
+
+Our focus will be on the business data, but we will use the review data to get some insights about businesses and will do some feature engineering to create useful variables for the model.
+
+## review data
+
+No missing values.
+
+```{r}
+glimpse(review)
+```
+```{r}
+missmap(review, col = c('yellow','darkgreen'), main = 'Missing values vs observed')
+```
+
+
 ## Business Data
 
 ```{r}
-paste(class(business$state), 'class with', length(unique(business$state)), 'unique values and', sum(is.na(business$state)), 'missing values')
-```
-
-18,233 Observations and 13 Variables
-$ address      character class with 14422 unique values and 283 missing values
-$ business_id  character class with 18233 unique values and 0 missing values
-$ categories   character class with 10028 unique values and 33 missing values
-$ city         character class with 1 unique values and 0 missing values
-$ is_open      integer class with 2 unique values and 0 missing values
-$ latitude     numeric class with 15366 unique values and 1 missing values
-$ longitude    numeric class with 15315 unique values and 1 missing values
-$ name         character class with 15292 unique values and 0 missing values
-$ neighborhood character class with 80 unique values and 3435 missing values
-$ postal_code  character class with 5261 unique values and 117 missing values
-$ review_count integer class with 380 unique values and 0 missing values
-$ stars        numeric class with 9 unique values and 0 missing values
-$ state        character class with 2 unique values and 0 missing values
-
-
-```{r}
-ggplot(data = business) +
-  geom_point(mapping = aes(y = neighborhood, x = review_count, color = is_open))
+glimpse(business)
 ```
 
 
-
-
 ```{r}
-# Take a look on missing values
-library(Amelia)
 missmap(business, col = c('yellow','darkgreen'), main = 'Missing values vs observed')
 ```
 
+18,233 Observations and 13 Variables  
+$ address      character class with 14422 unique values and 283 missing values  
+$ business_id  character class with 18233 unique values and 0 missing values  
+$ categories   character class with 10028 unique values and 33 missing values  
+$ city         character class with 1 unique values and 0 missing values  
+$ is_open      integer class with 2 unique values and 0 missing values  
+$ latitude     numeric class with 15366 unique values and 1 missing values  
+$ longitude    numeric class with 15315 unique values and 1 missing values  
+$ name         character class with 15292 unique values and 0 missing values  
+$ neighborhood character class with 80 unique values and 3435 missing values  
+$ postal_code  character class with 5261 unique values and 117 missing values  
+$ review_count integer class with 380 unique values and 0 missing values  
+$ stars        numeric class with 9 unique values and 0 missing values  
+$ state        character class with 2 unique values and 0 missing values  
 
-## review Data
+
+
+
+
+```{r}
+# converting "is_open" attribute from integer to factor and change values to yes or no
+#lowering some character variable, converting "stars" from int to factor
+
+business <- business %>% 
+              mutate(is_open = as_factor(if_else(as.logical(is_open) == TRUE, "yes", "no")), 
+                     categories = str_to_lower(categories),
+                     name = str_to_lower(name),
+                     neighborhood = str_to_lower(neighborhood),
+                     stars =ordered(as_factor(as.character(stars)), levels = c("1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5"))
+                     ) 
+  
+```
+
+```{r}
+ggplot(business, mapping = aes(stars, review_count, fill =is_open)) +
+  geom_col(position = "stack")
+```
+
+Businesses "closed" received less reviews, and does not depend of rating. The graph below confirm that assumption. 
+
+
+
+```{r}
+ggplot(business, mapping = aes(stars, fill = is_open)) +
+  geom_bar(position = "dodge")
+```
+
+Same distribution of rating, may be the closure is not related to the rating.
+
+```{r}
+ggplot(business, mapping = aes(neighborhood,  fill =is_open)) +
+  geom_bar(position = "stack") +
+  coord_flip()
+```
+
+```{r}
+ggplot(business, mapping = aes(stars,  neighborhood, color = is_open)) +
+  geom_count()
+```
+
+
 
 ```{r}
 neighborhood <- business %>% 
@@ -71,16 +123,35 @@ neighborhood <- business %>%
                   arrange(code)
 ```
 
-474,803 Observations and 9 Variables: 9
-$ review_id   character class with 474803 unique values and 0 missing values
-$ user_id     character class with 103262 unique values and 0 missing values
-$ business_id character class with 18233 unique values and 0 missing values
-$ stars       integer class with 5 unique values and 0 missing values
-$ date        Date class from 2007-07-15 to 2018-07-02 and 0 missing values
-$ text        character and 0 missing values
-$ useful      integer class
-$ funny       integer class
-$ cool        integer class
+
+
+
+```{r}
+
+map <- map_data(canada.cities$capital)
+k <- ggplot(business, aes(fill = is_open))
+k + geom_map(aes(map_id = canada.cities), map = map) +
+expand_limits(x = business$longitude, y = business$latitude)
+
+
+
+data <- data.frame(murder = USArrests$Murder,
+state = tolower(rownames(USArrests)))
+map <- map_data("canada.cities")
+k <- ggplot(data, aes(fill = murder))
+k + geom_map(aes(map_id = state), map = map) +
+expand_limits(x = map$long, y = map$lat)
+map_id, alpha, color, fill, linetype, size
+
+map <- maps::canada.cities
+
+```
+
+
+
+
+
+
 
 
 ```{r}
@@ -89,24 +160,6 @@ test <- neighborhood %>%
           arrange(code)
 ```
 
-
-```{r}
-paste(class(review$useful), 'class with', length(unique(review$useful)), 'unique values and', sum(is.na(review$useful)), 'missing values')
-```
-
-```{r}
-# Take a look on missing values
-missmap(review, col = c('yellow','darkgreen'), main = 'Missing values vs observed')
-```
-
-
-```{r}
-cb <- business %>% filter(is_open == 0)
-```
-
-```{r}
-cb_rev <- inner_join(cb, review, by = "business_id")
-```
 
 ```{r}
 range_date <- cb_rev %>% 
@@ -121,25 +174,7 @@ range_date <- cb_rev %>%
 
 
 ```{r}
-test <- cb_rev %>% filter(business_id == "W8D-GbPDFCWkZpdlQoYH0g") %>%
-          arrange(desc(date))
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-```{r}
-resturant_neighborhood <- business %>% 
+restaurant_neighborhood <- business %>% 
                             group_by(neighborhood) %>%
                             summarize(total_review = sum(review_count), mean_stars = round(mean(stars),1)) %>%
                             arrange(desc(total_review))
@@ -147,15 +182,15 @@ resturant_neighborhood <- business %>%
 ```
 
 ```{r}
-ggplot(business, aes(x = neighborhood)) +
+ggplot(business, mapping = aes(x = neighborhood, fill = is_open)) +
 geom_bar() + coord_flip()
 ```
 
 
 
 ```{r}
-ggplot(business, aes(x = neighborhood)) +
-  geom_bar(mapping = aes(x = neighborhood, fill = neighborhood))
+ggplot(business, mapping = aes(x = neighborhood)) +
+  geom_bar(aes(fill = stars))
 ```
 
 
@@ -221,6 +256,31 @@ closed_count <- review %>%
                   group_by(business_id, text_count) %>%
                   arrange(desc(text_count))
                   
+```
+
+
+# maps
+
+```{r}
+library(cancensus)
+library(sf)
+# retrieve sf dataframe
+toronto <- get_census(dataset='CA16', regions=list(CMA="35535"),
+                         vectors="v_CA16_2397", level='CSD', quiet = TRUE, 
+                         geo_format = 'sf', labels = 'short')
+```
+
+```{r}
+business %>% filter(is.na(longitude) == TRUE)
+```
+M5H 4G1/Coordinates
+43.6508° N, 79.3854° W (lat: 43.6508, lon: -79.3854)
+
+
+
+
+```{r}
+
 ```
 
 
