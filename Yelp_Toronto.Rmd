@@ -3,7 +3,7 @@ title: "Filter to Toronto reviews"
 output: html_notebook
 ---
 
-We will subset the different datasets to get observations related to Toronto businesses.
+We will subset the different datasets to get observations related to Toronto businesses from July 2007 to July 2018.
 
 # Libraries
 

@@ -1,7 +1,15 @@
 ---
 title: "Capstone Project"
-output: html_notebook
+output: 
+  html_notebook:
+    fig_width: 6 
+    fig_height: 4
+    
 ---
+
+```{r}
+knitr::opts_chunk$set(fig.width=12, fig.height=8) 
+```
 
 
 # Load Libraries
@@ -14,6 +22,13 @@ library(lubridate)
 library(ggmap)
 library(quantreg)
 library(shapefiles)
+library(leaflet)
+library(stringi)
+library(ngram)
+library(qdap)
+library(rgdal)
+library(plotly)
+library(data.table)
 ```
 
 # Load Data
@@ -21,9 +36,6 @@ library(shapefiles)
 ```{r}
 business <- read_csv("yelp_toronto_business.csv")
 review <- read_csv("yelp_toronto_review.csv")
-user <- read_csv("yelp_toronto_user.csv")
-tip <- read_csv("yelp_toronto_tip.csv")
-photo <- read_csv("yelp_toronto_photo.csv")
 ```
 
 # Exploratory Data Analysis
@@ -32,13 +44,22 @@ Our focus will be on the business data, but we will use the review data to get s
 
 ## review data
 
-No missing values.
-
 ```{r}
 glimpse(review)
 ```
+
 ```{r}
+# Are there any missing values?
 missmap(review, col = c('yellow','darkgreen'), main = 'Missing values vs observed')
+```
+Sounds good, there are No missing values in the review dataset. Later we will check if some variable will help for building our model.
+
+```{r}
+review <- review %>%
+                  mutate(word_count = str_count(review$text, "\\w+")) %>%
+                  group_by(business_id, word_count) %>%
+                  arrange(desc(word_count))
+                  
 ```
 
 
@@ -48,11 +69,22 @@ missmap(review, col = c('yellow','darkgreen'), main = 'Missing values vs observe
 glimpse(business)
 ```
 
-
 ```{r}
-missmap(business, col = c('yellow','darkgreen'), main = 'Missing values vs observed')
+missing <- data.table(pmiss = sapply(business, function(x) { (sum(is.na(x)) / length(x)) }),
+                      column = names(business))
+  
+p <- ggplot(missing,aes(x = reorder(column, -pmiss), y = pmiss)) +
+      geom_bar(stat = 'identity', fill = 'steelblue') + 
+      scale_y_continuous(labels = scales::percent) + 
+      theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+      labs(
+        title='Missing data by feature',
+        x='Feature',
+        y='% missing')
+ggplotly(p)
 ```
 
+We have that summary for the business data:
 18,233 Observations and 13 Variables  
 $ address      character class with 14422 unique values and 283 missing values  
 $ business_id  character class with 18233 unique values and 0 missing values  
@@ -70,9 +102,17 @@ $ state        character class with 2 unique values and 0 missing values
 
 
 
-
-
 ```{r}
+# correcting coordinates
+business[which(business$address == "2138 Queen Street E"),] <- business %>% 
+                                                        filter(business$address == "2138 Queen Street E") %>%
+                                                        mutate(longitude = -79.293425, latitude = 43.671584)
+
+#adding coordinates for the postal code M5H 4G1 (lon: -79.3854, lat: 43.6508)  
+business[which(is.na(business$longitude) == TRUE),] <- business %>% 
+                                                        filter(is.na(longitude) == TRUE) %>%
+                                                        mutate(longitude = -79.3854, latitude = 43.6508)
+
 # converting "is_open" attribute from integer to factor and change values to yes or no
 #lowering some character variable, converting "stars" from int to factor
 
@@ -83,204 +123,105 @@ business <- business %>%
                      neighborhood = str_to_lower(neighborhood),
                      stars =ordered(as_factor(as.character(stars)), levels = c("1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5"))
                      ) 
-  
+
 ```
 
-```{r}
-ggplot(business, mapping = aes(stars, review_count, fill =is_open)) +
-  geom_col(position = "stack")
+Let check the distribution in the target variable. How many businesses are open? How many are closed?
+
+```{r, fig.width=3, fig.height=5}
+p <- ggplot(business, aes(x = is_open)) +
+      geom_bar(aes(fill = is_open))
+ggplotly(p)
 ```
 
-Businesses "closed" received less reviews, and does not depend of rating. The graph below confirm that assumption. 
+14023 businesses are open (77%) and 4210 closed (23%). Our target variable is imbalanced.
 
+```{r}
+# star rating distribution
+p <- ggplot(business, mapping = aes(stars)) +
+      geom_bar(aes(fill = stars)) +
+      labs(title ="Star rating distribution")
+
+ggplotly(p)
+```
+Around 70% of the businesses got a rating between 3 and 4.5
 
 
 ```{r}
-ggplot(business, mapping = aes(stars, fill = is_open)) +
-  geom_bar(position = "dodge")
+# The distribution of number of reviews
+#we have applied log since the distribution is skewed
+p <- ggplot(data = business, aes(x = review_count)) + 
+      geom_histogram(bins = 50, fill = "darkgreen", binwidth = 25) +
+      #geom_density(alpha=.2, fill="#FF6666") +
+      scale_y_log10() +
+      labs(title ="Distribution of reviews")
+
+
+ggplotly(p)
+#ggsave("reviews_dist.png", width = 10, height = 5)
+
+```
+
+Businesses "closed" received less reviews, and does not depend of rating. The graph below confirms that assumption. 
+
+```{r}
+p <- ggplot(business, mapping = aes(stars, fill = is_open)) +
+  geom_bar(position = "dodge") +
+  labs( x = "Star rating", y = "Number of businesses", title ="Star rating distribution business open/closed")
+
+ggplotly(p)
+#ggsave("stars_dist2.png", width = 5, height = 5)
 ```
 
 Same distribution of rating, may be the closure is not related to the rating.
 
 ```{r}
-ggplot(business, mapping = aes(neighborhood,  fill =is_open)) +
+p <- ggplot(business, mapping = aes(neighborhood,  fill =is_open)) +
   geom_bar(position = "stack") +
   coord_flip()
+
+ggplotly(p)
 ```
 
 ```{r}
-ggplot(business, mapping = aes(stars,  neighborhood, color = is_open)) +
-  geom_count()
+center_long = median(business$longitude, na.rm = TRUE)
+center_lat = median(business$latitude, na.rm = TRUE)
+
+leaflet(business) %>% 
+      addTiles()%>%
+      #addProviderTiles("Esri.NatGeoWorldMap") %>%
+      addCircles(lng = ~ longitude, lat = ~latitude, radius = ~sqrt(review_count)) %>%
+      setView(lng = center_long, lat = center_lat, zoom = 10)
+
 ```
 
 
+Leading Business Categories:
+
+Let's look at the leading business categories in out dataset. A business is linked to multiple categories in our dataset, so we have to do a bit of preprocessing, which is simple using dplyr package.
 
 ```{r}
-neighborhood <- business %>% 
-                  select(neighborhood, postal_code) %>% 
-                  group_by(neighborhood) %>%
-                  mutate(code = str_sub(postal_code, 1L, 6L)) %>%
-                  arrange(code)
+categorie <- business %>% 
+                unnest(categories = str_split(categories, ",")) %>%
+                mutate(categories = str_trim(categories,side = "both")) %>%
+                select(name, categories) %>% 
+                group_by(categories) %>% 
+                summarise(n=n()) %>% 
+                arrange(desc(n)) %>% 
+                head(25)
+
+p <- ggplot(categorie, aes(x = reorder(categories, n), y = n)) +
+      geom_col(aes(fill = n)) +
+      scale_fill_gradientn(colours=RColorBrewer::brewer.pal(11,"Spectral")) +
+      coord_flip()
+
+
+
+ggplotly(p)
 ```
-
-
-
-
-```{r}
-
-map <- map_data(canada.cities$capital)
-k <- ggplot(business, aes(fill = is_open))
-k + geom_map(aes(map_id = canada.cities), map = map) +
-expand_limits(x = business$longitude, y = business$latitude)
-
-
-
-data <- data.frame(murder = USArrests$Murder,
-state = tolower(rownames(USArrests)))
-map <- map_data("canada.cities")
-k <- ggplot(data, aes(fill = murder))
-k + geom_map(aes(map_id = state), map = map) +
-expand_limits(x = map$long, y = map$lat)
-map_id, alpha, color, fill, linetype, size
-
-map <- maps::canada.cities
-
-```
-
-
-
-
-
-
-
-
-```{r}
-test <- neighborhood %>% 
-          select(code, neighborhood, postal_code) %>%
-          arrange(code)
-```
-
-
-```{r}
-range_date <- cb_rev %>% 
-                select(name, business_id, review_count, date) %>%
-                group_by(business_id, name, review_count) %>% 
-                summarise(duration = (max(year(date)) - min(year(date)))) %>%
-                arrange(duration)
-                
-                
-```
-
-
-
-```{r}
-restaurant_neighborhood <- business %>% 
-                            group_by(neighborhood) %>%
-                            summarize(total_review = sum(review_count), mean_stars = round(mean(stars),1)) %>%
-                            arrange(desc(total_review))
-                           
-```
-
-```{r}
-ggplot(business, mapping = aes(x = neighborhood, fill = is_open)) +
-geom_bar() + coord_flip()
-```
-
-
-
-```{r}
-ggplot(business, mapping = aes(x = neighborhood)) +
-  geom_bar(aes(fill = stars))
-```
-
-
-```{r}
-business2 %>% select(-starts_with("hours"), -starts_with("attribute")) %>% filter(city == 'Toronto') %>% unnest(categories) %>%
- select(name, categories)%>%group_by(categories)%>%summarise(n=n())%>%arrange(desc(n))%>%head(20)
-```
-
-
-```{r}
-business2 %>% select(-starts_with("hours"), -starts_with("attribute")) %>% filter(city == 'Toronto') %>% unnest(categories = strsplit(categories, ",")) %>%
- select(name, categories)%>%group_by(categories)%>%summarise(n=n())%>%arrange(desc(n))%>%head(20)
-
-#df %>% unnest(y = strsplit(y, ","))
-```
-
-
-
-
-```{r}
-length(unique(business$categories))
-```
-
-
-```{r}
-library(descr)
-# Let filter based on transaction type "Renewal"
-CrossTable(renew_channel$channel)
-```
-
-
-```{r}
-business2 <- readRDS("business_data.rds")
-```
-
-
-```{r}
-head(checkins)
-```
-
-```{r}
-cat <- business2 %>% select(-starts_with("hours"), -starts_with("attribute")) %>% filter(city == 'Toronto') %>% unnest(categories = strsplit(categories, ",")) %>%
- select(name, categories)%>%group_by(categories)%>%summarise(n=n())%>%arrange(desc(n))
-```
-
-
-```{r}
-cat2 <- business2 %>% select(-starts_with("hours"), -starts_with("attribute")) %>% filter(city == 'Toronto') %>% unnest(categories) %>%
- select(name, categories)%>%group_by(categories)%>%summarise(n=n())%>%arrange(desc(n))
-```
-
-
-```{r}
-c <- colnames(business2$attributes)
-test <- business2[, c('business_id', c)]
-```
-
-
-```{r}
-closed_count <- review %>%
-                  select(business_id, text) %>%
-                  mutate(text_count = str_count(review$text, "closed down")) %>%
-                  group_by(business_id, text_count) %>%
-                  arrange(desc(text_count))
-                  
-```
-
-
-# maps
-
-```{r}
-library(cancensus)
-library(sf)
-# retrieve sf dataframe
-toronto <- get_census(dataset='CA16', regions=list(CMA="35535"),
-                         vectors="v_CA16_2397", level='CSD', quiet = TRUE, 
-                         geo_format = 'sf', labels = 'short')
-```
-
-```{r}
-business %>% filter(is.na(longitude) == TRUE)
-```
-M5H 4G1/Coordinates
-43.6508° N, 79.3854° W (lat: 43.6508, lon: -79.3854)
-
-
 
 
 ```{r}
 
 ```
-
 
