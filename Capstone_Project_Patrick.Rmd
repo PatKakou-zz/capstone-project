@@ -1,11 +1,12 @@
 ---
-title: "Capstone Project"
+title: "Exploratory Data Analysis"
 output: 
   html_notebook:
     fig_width: 6 
     fig_height: 4
     
 ---
+
 
 ```{r}
 knitr::opts_chunk$set(fig.width=12, fig.height=8) 
@@ -52,24 +53,37 @@ glimpse(review)
 # Are there any missing values?
 missmap(review, col = c('yellow','darkgreen'), main = 'Missing values vs observed')
 ```
-Sounds good, there are No missing values in the review dataset. Later we will check if some variable will help for building our model.
+Sounds good, there are no missing values in the review dataset. Later we will check if some variable will help for building our model.
+For that data set, we will select later 4 features ('business_id', 'stars', 'text', 'date') and try to create new features and add them to the initial business data. 
 
 ```{r}
+#Create a new variable containing the number of word in reviews
 review <- review %>%
-                  mutate(word_count = str_count(review$text, "\\w+")) %>%
-                  group_by(business_id, word_count) %>%
-                  arrange(desc(word_count))
+            mutate(word_count = str_count(review$text, "\\w+")) %>%
+            group_by(business_id, word_count) %>%
+            arrange(desc(word_count))
                   
 ```
 
 
 ## Business Data
 
+Now let check the business data set and respond to those questions:
+
+Does the data contain some missing values?
+What is the ditribution of the variables?
+How are the different variables related to each other?
+
 ```{r}
+# Business data structure
 glimpse(business)
 ```
 
+### Visualization of missing values
+
 ```{r}
+# let visualize the percentage of missing values for each feature
+
 missing <- data.table(pmiss = sapply(business, function(x) { (sum(is.na(x)) / length(x)) }),
                       column = names(business))
   
@@ -78,10 +92,13 @@ p <- ggplot(missing,aes(x = reorder(column, -pmiss), y = pmiss)) +
       scale_y_continuous(labels = scales::percent) + 
       theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
       labs(
-        title='Missing data by feature',
-        x='Feature',
-        y='% missing')
-ggplotly(p)
+        x = 'Feature',
+        y = '% missing',
+        title = "Missing data by feature"
+        )
+
+
+ggplotly(p) 
 ```
 
 We have that summary for the business data:
@@ -101,6 +118,7 @@ $ stars        numeric class with 9 unique values and 0 missing values
 $ state        character class with 2 unique values and 0 missing values  
 
 
+The neighborhood variable have the most missing values (19%). 
 
 ```{r}
 # correcting coordinates
@@ -119,25 +137,29 @@ business[which(is.na(business$longitude) == TRUE),] <- business %>%
 business <- business %>% 
               mutate(is_open = as_factor(if_else(as.logical(is_open) == TRUE, "yes", "no")), 
                      categories = str_to_lower(categories),
-                     name = str_to_lower(name),
+                     name = str_trim(str_to_lower(name),side = 'both'),
                      neighborhood = str_to_lower(neighborhood),
                      stars =ordered(as_factor(as.character(stars)), levels = c("1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5"))
                      ) 
 
 ```
 
+### Univariate and bivariate analysis
+
 Let check the distribution in the target variable. How many businesses are open? How many are closed?
 
-```{r, fig.width=3, fig.height=5}
+```{r}
+# Target variable distribution
 p <- ggplot(business, aes(x = is_open)) +
       geom_bar(aes(fill = is_open))
+
 ggplotly(p)
 ```
 
 14023 businesses are open (77%) and 4210 closed (23%). Our target variable is imbalanced.
 
 ```{r}
-# star rating distribution
+# Star rating distribution
 p <- ggplot(business, mapping = aes(stars)) +
       geom_bar(aes(fill = stars)) +
       labs(title ="Star rating distribution")
@@ -162,7 +184,19 @@ ggplotly(p)
 
 ```
 
-Businesses "closed" received less reviews, and does not depend of rating. The graph below confirms that assumption. 
+Businesses "closed" received less reviews, and does not depend of rating. The graph below confirms that assumption. Same distribution of rating, may be the closure is not related to the rating.
+
+
+
+```{r}
+p <- ggplot(business, mapping = aes(stars, review_count, fill = is_open)) +
+  geom_col(position = "dodge") +
+  labs( x = "Star rating", y = "Number of reviews", title ="Star rating distribution business open/closed")
+
+ggplotly(p)
+```
+
+
 
 ```{r}
 p <- ggplot(business, mapping = aes(stars, fill = is_open)) +
@@ -173,15 +207,7 @@ ggplotly(p)
 #ggsave("stars_dist2.png", width = 5, height = 5)
 ```
 
-Same distribution of rating, may be the closure is not related to the rating.
 
-```{r}
-p <- ggplot(business, mapping = aes(neighborhood,  fill =is_open)) +
-  geom_bar(position = "stack") +
-  coord_flip()
-
-ggplotly(p)
-```
 
 ```{r}
 center_long = median(business$longitude, na.rm = TRUE)
@@ -196,15 +222,15 @@ leaflet(business) %>%
 ```
 
 
-Leading Business Categories:
+### Leading Business Categories:
 
-Let's look at the leading business categories in out dataset. A business is linked to multiple categories in our dataset, so we have to do a bit of preprocessing, which is simple using dplyr package.
+Let's look at the leading business categories in our data set. A business is linked to multiple categories in our dataset, so we have to do a bit of preprocessing, which is simple using dplyr package.
 
 ```{r}
 categorie <- business %>% 
                 unnest(categories = str_split(categories, ",")) %>%
                 mutate(categories = str_trim(categories,side = "both")) %>%
-                select(name, categories) %>% 
+                select(categories) %>% 
                 group_by(categories) %>% 
                 summarise(n=n()) %>% 
                 arrange(desc(n)) %>% 
@@ -213,15 +239,40 @@ categorie <- business %>%
 p <- ggplot(categorie, aes(x = reorder(categories, n), y = n)) +
       geom_col(aes(fill = n)) +
       scale_fill_gradientn(colours=RColorBrewer::brewer.pal(11,"Spectral")) +
-      coord_flip()
+      coord_flip() +
+      labs(title ="Top 25 business categories")
+
+
+
+ggplotly(p)
+```
+More than 60% of the rated businesses rated have their activities related to food.
+
+# Top Business names
+
+
+```{r}
+business_name <- business %>% 
+                select(name) %>% 
+                group_by(name) %>% 
+                summarise(n=n()) %>% 
+                arrange(desc(n)) %>% 
+                head(25)
+
+p <- ggplot(business_name, aes(x = reorder(name, n), y = n)) +
+      geom_col(aes(fill = n)) +
+      scale_fill_gradientn(colours=RColorBrewer::brewer.pal(11,"Spectral")) +
+      coord_flip() +
+      labs(title ="Top 25 business names")
 
 
 
 ggplotly(p)
 ```
 
-
 ```{r}
 
 ```
+
+
 
