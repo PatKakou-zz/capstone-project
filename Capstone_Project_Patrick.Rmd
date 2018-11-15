@@ -50,25 +50,25 @@ glimpse(review)
 ```
 
 ```{r}
-# Are there any missing values?
-missmap(review, col = c('yellow','darkgreen'), main = 'Missing values vs observed')
+# Are there any missing values in the review data?
+paste("There is :", sum(is.na(review)), "missing values in the review data.")
 ```
 Sounds good, there are no missing values in the review dataset. Later we will check if some variable will help for building our model.
 For that data set, we will select later 4 features ('business_id', 'stars', 'text', 'date') and try to create new features and add them to the initial business data. 
 
 ```{r}
-#Create a new variable containing the number of word in reviews
+#Create a new variable containing the number of word and characters in reviews 
 review <- review %>%
-            mutate(word_count = str_count(review$text, "\\w+")) %>%
-            group_by(business_id, word_count) %>%
-            arrange(desc(word_count))
+            mutate(no_characters = nchar(review$text), no_words = str_count(review$text, "\\w+")) #%>%
+            #group_by(business_id, word_count) %>%
+            #arrange(desc(word_count))
                   
 ```
 
 
 ## Business Data
 
-Now let check the business data set and respond to those questions:
+Now let check the business data set and respond to the questions below:
 
 Does the data contain some missing values?
 What is the ditribution of the variables?
@@ -184,21 +184,39 @@ ggplotly(p)
 
 ```
 
-Businesses "closed" received less reviews, and does not depend of rating. The graph below confirms that assumption. Same distribution of rating, may be the closure is not related to the rating.
-
+Let visualize if Businesses "closed" received less reviews, and if the closure depend on rating. 
 
 
 ```{r}
-p <- ggplot(business, mapping = aes(stars, review_count, fill = is_open)) +
-  geom_col(position = "dodge") +
-  labs( x = "Star rating", y = "Number of reviews", title ="Star rating distribution business open/closed")
+# visualizing the number of review per rating star
 
-ggplotly(p)
+stars <- business %>%
+          select(stars, review_count) %>%
+          group_by(stars, review_count) %>%
+          (summarise(review_count))
+
+p1 <- ggplotly(
+        ggplot(business, mapping = aes(stars, review_count)) +
+          geom_col(position = 'stack') +
+          labs( x = "Star rating", y = "Number of reviews", title ="Star rating distribution business open/closed")
+        )
+
+p2 <- ggplotly(
+        ggplot(business, mapping = aes(stars, review_count, fill = is_open)) +
+          geom_col(position = 'stack') +
+          labs( x = "Star rating", y = "Number of reviews", title ="Star rating distribution business open/closed")
+        )
+
+subplot(p1, p2)
+
 ```
 
 
 
 ```{r}
+distribution against business status (open/closed)
+
+
 p <- ggplot(business, mapping = aes(stars, fill = is_open)) +
   geom_bar(position = "dodge") +
   labs( x = "Star rating", y = "Number of businesses", title ="Star rating distribution business open/closed")
