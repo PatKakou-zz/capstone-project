@@ -169,6 +169,12 @@ ggplotly(p)
 Around 70% of the businesses got a rating between 3 and 4.5
 
 
+
+
+
+
+
+
 ```{r}
 # The distribution of number of reviews
 #we have applied log since the distribution is skewed
@@ -184,48 +190,67 @@ ggplotly(p)
 
 ```
 
-Let visualize if Businesses "closed" received less reviews, and if the closure depend on rating. 
 
+
+Let visualize if "closed" Businesses received less reviews, and if the closure depend on rating. 
 
 ```{r}
 # visualizing the number of review per rating star
 
-stars <- business %>%
-          select(stars, review_count) %>%
-          group_by(stars, review_count) %>%
-          (summarise(review_count))
-
 p1 <- ggplotly(
-        ggplot(business, mapping = aes(stars, review_count)) +
-          geom_col(position = 'stack') +
-          labs( x = "Star rating", y = "Number of reviews", title ="Star rating distribution business open/closed")
+       business %>%
+          select(stars, review_count) %>%
+          group_by(stars) %>%
+          summarize(review_count = sum(review_count)) %>%
+        ggplot(stars, mapping = aes(stars, review_count)) +
+          geom_col(fill = 'darkgreen') +
+          labs( x = "Star rating", y = "Number of reviews", title ="Number of reviews per rating star")
         )
 
 p2 <- ggplotly(
+       business %>%
+          select(stars, is_open, review_count) %>%
+          group_by(stars, is_open) %>%
+          summarize(review_count = sum(review_count))%>%
         ggplot(business, mapping = aes(stars, review_count, fill = is_open)) +
-          geom_col(position = 'stack') +
-          labs( x = "Star rating", y = "Number of reviews", title ="Star rating distribution business open/closed")
+          geom_col(position = 'dodge') +
+          labs( x = "Star rating", y = "Number of reviews", title ="Number of reviews per rating star")
         )
 
-subplot(p1, p2)
+
+subplot(p1, p2, nrows = 2, margin = 0.02, shareX = TRUE, shareY = TRUE, titleX = TRUE, titleY = TRUE)
 
 ```
 
+From the graph above, we can gather that the distribution of number of reviews is quite the same for 'open' businesses and 'closed'  businesses. As the target variable is not balanced, it's not a supprise that for each rating we observed a significant difference in term of number of reviews.
 
 
 ```{r}
-distribution against business status (open/closed)
+# visualizing the number of business per rating star
+
+p1 <- ggplotly(
+        ggplot(business, mapping = aes(stars)) +
+        geom_bar(fill = "darkblue") +
+        labs( x = "Star rating", y = "Number of businesses", title ="Star rating distribution business open/closed")
+        )
 
 
-p <- ggplot(business, mapping = aes(stars, fill = is_open)) +
-  geom_bar(position = "dodge") +
-  labs( x = "Star rating", y = "Number of businesses", title ="Star rating distribution business open/closed")
 
-ggplotly(p)
+p2 <- ggplotly(
+        ggplot(business, mapping = aes(stars, fill = is_open)) +
+        geom_bar(position = "dodge") +
+        labs( x = "Star rating", y = "Number of businesses", title ="Star rating distribution business open/closed")
+        )
+
+
+subplot(p1, p2, nrows = 2, margin = 0.02, shareX = TRUE, shareY = TRUE, titleX = TRUE, titleY = TRUE)
 #ggsave("stars_dist2.png", width = 5, height = 5)
 ```
 
+One assumption we can make is that ratings has no impact on a business closure. 
 
+
+### Geographical visualization
 
 ```{r}
 center_long = median(business$longitude, na.rm = TRUE)
@@ -239,12 +264,16 @@ leaflet(business) %>%
 
 ```
 
+In the Great Toronto Area (GTA), most of the businesses are located in Downtown Toronto.
+
 
 ### Leading Business Categories:
 
-Let's look at the leading business categories in our data set. A business is linked to multiple categories in our dataset, so we have to do a bit of preprocessing, which is simple using dplyr package.
+Let's look at the leading business categories in our data set. A business is linked to multiple categories in our dataset, so we have to do a bit of preprocessing, which is simple using the dplyr package.
 
 ```{r}
+# Top categories of business in GTA
+
 categorie <- business %>% 
                 unnest(categories = str_split(categories, ",")) %>%
                 mutate(categories = str_trim(categories,side = "both")) %>%
@@ -265,6 +294,22 @@ p <- ggplot(categorie, aes(x = reorder(categories, n), y = n)) +
 ggplotly(p)
 ```
 More than 60% of the rated businesses rated have their activities related to food.
+
+__________________
+
+As in teh data set each business is linked to multiple categories, we will create a new feature to count the number of categories per business.
+
+```{r}
+# Create a new variable to gather the number of categories for each business
+business <-  business %>% 
+              mutate(cat_count = length(business$categories))
+                            
+
+
+
+```
+
+
 
 # Top Business names
 
