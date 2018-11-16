@@ -135,64 +135,88 @@ business[which(is.na(business$longitude) == TRUE),] <- business %>%
 #lowering some character variable, converting "stars" from int to factor
 
 business <- business %>% 
-              mutate(is_open = as_factor(if_else(as.logical(is_open) == TRUE, "yes", "no")), 
-                     categories = str_to_lower(categories),
+              mutate(categories = str_to_lower(categories),
                      name = str_trim(str_to_lower(name),side = 'both'),
                      neighborhood = str_to_lower(neighborhood),
-                     stars =ordered(as_factor(as.character(stars)), levels = c("1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5"))
                      ) 
 
 ```
 
 ### Univariate and bivariate analysis
 
-Let check the distribution in the target variable. How many businesses are open? How many are closed?
+**Let check the distribution in the target variable.**
+_______________
+How many businesses are open? How many are closed?
 
 ```{r}
 # Target variable distribution
-p <- ggplot(business, aes(x = is_open)) +
-      geom_bar(aes(fill = is_open))
+p <- ggplot(business, aes(x = as.factor(is_open))) +
+      geom_bar(aes(fill = as.factor(is_open)))
 
 ggplotly(p)
 ```
 
 14023 businesses are open (77%) and 4210 closed (23%). Our target variable is imbalanced.
 
-```{r}
-# Star rating distribution
-p <- ggplot(business, mapping = aes(stars)) +
-      geom_bar(aes(fill = stars)) +
-      labs(title ="Star rating distribution")
+**Does business closure depend on rating?**
 
-ggplotly(p)
+```{r}
+# visualizing the number of business per rating star
+
+p1 <- ggplotly(
+        ggplot(business, mapping = aes(as.factor(stars))) +
+        geom_bar(fill = 'darkblue') +
+        labs( x = "Star rating", y = "Number of businesses", title ="Star rating distribution business open/closed")
+        )
+
+
+
+p2 <- ggplotly(
+        ggplot(business, mapping = aes(as.factor(stars), fill = as.factor(is_open))) +
+        geom_bar(position = "dodge") +
+        labs( x = "Star rating", y = "Number of businesses", title ="Star rating distribution business open/closed")
+        )
+
+
+subplot(p1, p2, nrows = 1, margin = 0.02, shareX = TRUE, shareY = TRUE, titleX = TRUE, titleY = TRUE)
+#ggsave("stars_dist2.png", width = 5, height = 5)
 ```
-Around 70% of the businesses got a rating between 3 and 4.5
 
+Around 70% of the businesses got a rating between 3 and 4.5.
+From the graph above, we can gather that the distribution of businesses per rating has the same shape for 'open' businesses and 'closed'  businesses.
+One assumption we can make is that ratings has no impact on a business closure. We will confirm that or not later.
 
+_______________
 
-
-
-
-
+**Let visualize if "closed" Businesses received less reviews, and if rating are correlated with the number of reviews.**
 
 ```{r}
-# The distribution of number of reviews
+# The distribution of reviews
 #we have applied log since the distribution is skewed
-p <- ggplot(data = business, aes(x = review_count)) + 
-      geom_histogram(bins = 50, fill = "darkgreen", binwidth = 25) +
-      #geom_density(alpha=.2, fill="#FF6666") +
-      scale_y_log10() +
-      labs(title ="Distribution of reviews")
+
+p1 <- ggplotly(
+        ggplot(data = business, aes(x = review_count)) + 
+          geom_histogram(bins = 50,binwidth = 0.1, fill = 'darkgreen') +
+          scale_x_log10() +
+          scale_y_log10() +
+          labs(title ="Distribution of reviews")
+        )
+
+p2 <- ggplotly(
+        ggplot(data = business, aes(x = review_count, fill = as.factor(is_open))) + 
+          geom_histogram(bins = 50,binwidth = 0.1, position = 'dodge') +
+          scale_x_log10() +
+          scale_y_log10() +
+          labs(title ="Distribution of reviews")
+        )
 
 
-ggplotly(p)
+subplot(p1, p2, nrows = 1, margin = 0.02, shareX = TRUE, shareY = TRUE, titleX = TRUE, titleY = TRUE)
 #ggsave("reviews_dist.png", width = 10, height = 5)
 
 ```
 
-
-
-Let visualize if "closed" Businesses received less reviews, and if the closure depend on rating. 
+ 
 
 ```{r}
 # visualizing the number of review per rating star
@@ -202,7 +226,7 @@ p1 <- ggplotly(
           select(stars, review_count) %>%
           group_by(stars) %>%
           summarize(review_count = sum(review_count)) %>%
-        ggplot(stars, mapping = aes(stars, review_count)) +
+        ggplot(stars, mapping = aes(as.factor(stars), review_count)) +
           geom_col(fill = 'darkgreen') +
           labs( x = "Star rating", y = "Number of reviews", title ="Number of reviews per rating star")
         )
@@ -212,7 +236,7 @@ p2 <- ggplotly(
           select(stars, is_open, review_count) %>%
           group_by(stars, is_open) %>%
           summarize(review_count = sum(review_count))%>%
-        ggplot(business, mapping = aes(stars, review_count, fill = is_open)) +
+        ggplot(business, mapping = aes(as.factor(stars), review_count, fill = as.factor(is_open))) +
           geom_col(position = 'dodge') +
           labs( x = "Star rating", y = "Number of reviews", title ="Number of reviews per rating star")
         )
@@ -222,35 +246,11 @@ subplot(p1, p2, nrows = 2, margin = 0.02, shareX = TRUE, shareY = TRUE, titleX =
 
 ```
 
-From the graph above, we can gather that the distribution of number of reviews is quite the same for 'open' businesses and 'closed'  businesses. As the target variable is not balanced, it's not a supprise that for each rating we observed a significant difference in term of number of reviews.
-
-
-```{r}
-# visualizing the number of business per rating star
-
-p1 <- ggplotly(
-        ggplot(business, mapping = aes(stars)) +
-        geom_bar(fill = "darkblue") +
-        labs( x = "Star rating", y = "Number of businesses", title ="Star rating distribution business open/closed")
-        )
-
-
-
-p2 <- ggplotly(
-        ggplot(business, mapping = aes(stars, fill = is_open)) +
-        geom_bar(position = "dodge") +
-        labs( x = "Star rating", y = "Number of businesses", title ="Star rating distribution business open/closed")
-        )
-
-
-subplot(p1, p2, nrows = 2, margin = 0.02, shareX = TRUE, shareY = TRUE, titleX = TRUE, titleY = TRUE)
-#ggsave("stars_dist2.png", width = 5, height = 5)
-```
-
-One assumption we can make is that ratings has no impact on a business closure. 
+From the graph above, we can gather that the distribution shape of number of reviews per stars is quite the same for 'open' businesses and 'closed'  businesses. As the target variable is not balanced, it's not a supprise that for each rating we observed a significant difference in term of number of reviews.
 
 
 ### Geographical visualization
+
 
 ```{r}
 center_long = median(business$longitude, na.rm = TRUE)
@@ -266,10 +266,36 @@ leaflet(business) %>%
 
 In the Great Toronto Area (GTA), most of the businesses are located in Downtown Toronto.
 
+*"open" Businesses* 
+
+```{r}
+center_long = median(business$longitude, na.rm = TRUE)
+center_lat = median(business$latitude, na.rm = TRUE)
+
+leaflet(business %>% filter(is_open == 'yes')) %>% 
+      addTiles()%>%
+      #addProviderTiles("Esri.NatGeoWorldMap") %>%
+      addCircles(lng = ~ longitude, lat = ~latitude, radius = ~sqrt(review_count), color = 'green') %>%
+      setView(lng = center_long, lat = center_lat, zoom = 10)
+```
+
+*"closed" Businesses*
+
+```{r}
+center_long = median(business$longitude, na.rm = TRUE)
+center_lat = median(business$latitude, na.rm = TRUE)
+
+leaflet(business %>% filter(is_open == 'no')) %>% 
+      addTiles()%>%
+      #addProviderTiles("Esri.NatGeoWorldMap") %>%
+      addCircles(lng = ~ longitude, lat = ~latitude, radius = ~sqrt(review_count), color = 'purple') %>%
+      setView(lng = center_long, lat = center_lat, zoom = 10)
+```
+
 
 ### Leading Business Categories:
 
-Let's look at the leading business categories in our data set. A business is linked to multiple categories in our dataset, so we have to do a bit of preprocessing, which is simple using the dplyr package.
+Let look at the leading business categories in our data set. A business is linked to multiple categories in our dataset, so we have to do a bit of preprocessing, which is simple using the dplyr package.
 
 ```{r}
 # Top categories of business in GTA
@@ -287,27 +313,98 @@ p <- ggplot(categorie, aes(x = reorder(categories, n), y = n)) +
       geom_col(aes(fill = n)) +
       scale_fill_gradientn(colours=RColorBrewer::brewer.pal(11,"Spectral")) +
       coord_flip() +
-      labs(title ="Top 25 business categories")
+      labs(title ="Top 25 categories")
 
 
 
 ggplotly(p)
 ```
-More than 60% of the rated businesses rated have their activities related to food.
 
+More than 60% of the rated businesses have their activities related to food.
 __________________
 
-As in teh data set each business is linked to multiple categories, we will create a new feature to count the number of categories per business.
+As in the data set each business is linked to multiple categories, we will create a new feature to count the number of categories per business.
 
 ```{r}
 # Create a new variable to gather the number of categories for each business
-business <-  business %>% 
-              mutate(cat_count = length(business$categories))
-                            
+b_categorie <- business %>% 
+                unnest(categories = str_split(categories, ",")) %>%
+                mutate(categories = str_trim(categories,side = "both")) %>%
+                group_by(business_id, name) %>% 
+                summarize(categorie_count = n()) %>% 
+                arrange(desc(categorie_count))
 
+#Adding a new variable 'categorie_count' to the business data
+business <- full_join(business, b_categorie)
+                            
+p <- ggplot(b_categorie %>% head(15), aes(x = reorder(name, desc(categorie_count)), y = categorie_count)) +
+      geom_col(aes(fill = categorie_count)) +
+      scale_fill_gradientn(colours=rainbow(11)) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+      labs(
+        x = 'Buiness name',
+        title = "Top 15 businesses with mutiple categories"
+        )
+
+ggplotly(p)
 
 
 ```
+
+** distribution of categorie count**
+
+```{r}
+p1 <- ggplotly(
+        ggplot(data = business, aes(x = as.factor(categorie_count))) + 
+          geom_bar(fill = 'darkgreen') +
+          labs(title ="Distribution of number of categories", y = "Number of businesses")
+        )
+
+p2 <- ggplotly(
+        ggplot(data = business, aes(x = as.factor(categorie_count), fill = as.factor(is_open))) + 
+          geom_bar(position = 'dodge') +
+          labs(title ="Distribution of number of categories", x = "Number of categories", y = "Number of businesses")
+        )
+
+
+subplot(p1, p2, nrows = 2, margin = 0.02, shareX = TRUE, shareY = TRUE, titleX = TRUE, titleY = TRUE)
+```
+
+
+
+```{r}
+p1 <- ggplotly(
+        ggplot(data = business, aes(x = as.factor(stars), y = categorie_count)) + 
+          geom_boxplot(fill = 'darkgreen') +
+          labs(title ="Distribution of number of categories")
+        )
+
+p2 <- ggplotly(
+        ggplot(data = business, aes(x = as.factor(stars), y = categorie_count)) + 
+          geom_boxplot(aes(colour = as.factor(is_open))) +
+          labs(title ="Distribution of number of categories", x = "Number of categories", y = "Number of businesses")
+        )
+
+p3 <- ggplotly(
+        ggplot(data = business, aes(x = as.factor(is_open), categorie_count)) + 
+          geom_boxplot(fill = 'darkgreen', ) +
+          labs(title ="Distribution of number of categories")
+        )
+
+
+subplot(p1, p2, nrows = 1, margin = 0.05, shareX = TRUE, shareY = TRUE, titleX = TRUE, titleY = TRUE)
+```
+**review_count and categorie_count**
+
+```{r}
+ggplotly(
+  ggplot(business, aes(x = categorie_count, y=review_count)) +
+    geom_point(aes(fill = as.factor(is_open)))
+)
+
+
+```
+
 
 
 
@@ -320,13 +417,13 @@ business_name <- business %>%
                 group_by(name) %>% 
                 summarise(n=n()) %>% 
                 arrange(desc(n)) %>% 
-                head(25)
+                head(15)
 
 p <- ggplot(business_name, aes(x = reorder(name, n), y = n)) +
       geom_col(aes(fill = n)) +
       scale_fill_gradientn(colours=RColorBrewer::brewer.pal(11,"Spectral")) +
       coord_flip() +
-      labs(title ="Top 25 business names")
+      labs(title ="Top 15 business names")
 
 
 
@@ -334,8 +431,149 @@ ggplotly(p)
 ```
 
 ```{r}
+missing <- data.table(pmiss = sapply(business, function(x) { (sum(is.na(x)) / length(x)) }),
+                      column = names(business))
+  
+p <- ggplot(missing,aes(x = reorder(column, -pmiss), y = pmiss)) +
+      geom_bar(stat = 'identity', fill = 'steelblue') + 
+      scale_y_continuous(labels = scales::percent) + 
+      theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+      labs(
+        x = 'Feature',
+        y = '% missing',
+        title = "Missing data by feature"
+        )
+
+
+ggplotly(p) 
+```
+
+
+# Building the first model
+
+```{r}
+
+select_cols= c('is_open', 'review_count', 'stars', 'categorie_count')
+data = business %>% select(select_cols)
 
 ```
+
+
+### Spliting the train set for the model
+
+The function 'createDataPartition' from the ***caret package**** will be used to create a stratified random sample of the data into training and test sets.
+
+```{r}
+# Let's split the data dataset into training and test set.
+library(caret)
+set.seed(100000)
+#data_index <- sample(nrow(data), floor(nrow(data)*0.7))
+data_index <- createDataPartition(data$is_open, p = .6, list = FALSE, times = 1)
+train.set <- data[data_index,]
+test.set <- data[-data_index,]
+
+```
+
+## Create and fit different models
+---
+### 1- Logistic regression
+
+```{r}
+# Logistic Regression Model
+logreg <- glm(is_open~., data = train.set, family = binomial(link='logit'))
+#summary(logreg)
+```
+
+```{r}
+# Performance Evaluation: Confusion Matrix
+
+pred_logreg <- ifelse(predict(logreg, test.set[-1], type="response") >= 0.5, 1, 0)
+confusionMatrix_logreg <- table(actual = test.set$is_open, predicted = pred_logreg)
+confusionMatrix_logreg
+accuracy <- sum(diag(confusionMatrix_logreg))/nrow(test.set)
+print(paste('Accuracy =',accuracy))
+```
+
+
+```{r}
+#install.packages("ROCR")
+library(ROCR)
+pr <- prediction(pred_logreg, test.set$is_open)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+print(paste('AUC =',auc))
+```
+
+### 2- Random Forest
+
+```{r}
+#install.packages('randomForest')
+library(randomForest)
+set.seed(100000)
+rf <- randomForest(is_open ~ ., 
+                         data=train.set, 
+                         importance=TRUE, 
+                         ntree=2000)
+varImpPlot(rf)
+
+```
+
+
+```{r}
+# Performance Evaluation: Confusion Matrix
+predicted_rf <-  ifelse(predict(rf, test.set[-1]) >= 0.7, 1, 0)
+confusionMatrix_rf <- table(actual = test.set$is_open, predicted = predicted_rf)
+confusionMatrix_rf
+accuracy <- sum(diag(confusionMatrix_rf))/nrow(test.set)
+print(paste('Accuracy =',accuracy))
+```
+
+```{r}
+pr <- prediction(predicted_rf, test.set$is_open)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+print(paste('AUC =',auc))
+```
+
+
+
+### 3- Conditional Inference Random Forest (cforest)
+
+```{r}
+library('partykit')
+set.seed(100000)
+mdl_cf <- cforest(as.factor(is_open) ~.,
+                 data = train.set, 
+                 ntree=2000, mtry=3)
+```
+
+```{r}
+# Performance Evaluation: Confusion Matrix
+pred_cf <- predict(mdl_cf, test.set[-1], OOB=TRUE, type = 'response')
+confusionMatrix_cf <- table(actual = test.set$is_open, predicted = pred_cf)
+confusionMatrix_cf
+accuracy <- sum(diag(confusionMatrix_cf))/nrow(test.set)
+print(paste('Accuracy =',accuracy))
+```
+
+
+```{r}
+pr <- prediction(pred_cf, test.set$is_open)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+print(paste('AUC =',auc))
+```
+
+
 
 
 
