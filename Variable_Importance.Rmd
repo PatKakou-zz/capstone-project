@@ -1,0 +1,48 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+df <- business %>% mutate(address = as.factor(address), 
+                          business_id = as.factor(business_id),
+                          categories = as.factor(categories),
+                          city = as.factor(city),
+                          name = as.factor(name),
+                          neighborhood = as.factor(neighborhood),
+                          postal_code = as.factor(postal_code),
+                          state = as.factor(state))
+
+index <- createDataPartition(df$is_open, p = .6, list = FALSE, times = 1)
+d_train <- df[index,]
+d_test <- df[-index,]
+```
+
+
+
+```{r pressure, echo=FALSE}
+#load library for machine learning
+
+#install.packages('mlr', 'Fselector')
+library(mlr, Fselector)
+
+
+#create task
+train.task <- makeClassifTask(data = d_train,target = "is_open")
+test.task <- makeClassifTask(data=d_test,target = "is_open")
+
+#remove zero variance features
+train.task <- removeConstantFeatures(train.task)
+test.task <- removeConstantFeatures(test.task)
+
+#get variable importance chart
+var_imp <- generateFilterValuesData(train.task, method = c("information.gain"))
+plotFilterValues(var_imp,feat.type.cols = TRUE)
+```
+
+

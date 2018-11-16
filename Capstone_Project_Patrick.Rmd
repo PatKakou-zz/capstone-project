@@ -449,6 +449,9 @@ ggplotly(p)
 ```
 
 
+
+
+
 # Building the first model
 
 ```{r}
@@ -486,6 +489,7 @@ logreg <- glm(is_open~., data = train.set, family = binomial(link='logit'))
 
 ```{r}
 # Performance Evaluation: Confusion Matrix
+library(e1071)
 
 pred_logreg <- ifelse(predict(logreg, test.set[-1], type="response") >= 0.5, 1, 0)
 confusionMatrix_logreg <- table(actual = test.set$is_open, predicted = pred_logreg)
@@ -505,6 +509,7 @@ plot(prf)
 auc <- performance(pr, measure = "auc")
 auc <- auc@y.values[[1]]
 print(paste('AUC =',auc))
+
 ```
 
 ### 2- Random Forest
@@ -572,6 +577,123 @@ auc <- performance(pr, measure = "auc")
 auc <- auc@y.values[[1]]
 print(paste('AUC =',auc))
 ```
+
+
+### Dealing with the imbalance
+
+
+```{r}
+train.set <- train.set %>%
+              mutate(is_open = as.factor(is_open))
+
+test.set <- test.set %>%
+              mutate(is_open = as.factor(is_open))
+
+CrossTable(train.set$is_open)
+
+CrossTable(test.set$is_open)
+```
+
+```{r}
+
+library(rpart)
+treeimb <- rpart(is_open ~ ., data = train.set)
+pred.treeimb <- predict(treeimb, newdata = test.set)
+
+accuracy.meas(test.set$is_open, pred.treeimb[,2])
+```
+
+
+```{r}
+roc.curve(test.set$is_open, pred.treeimb[,2], plotit = F)
+```
+
+
+```{r}
+data_balanced_over <- ovun.sample(is_open ~ ., data = train.set, method = "over",N = 11200)$data
+table(data_balanced_over$is_open)
+```
+
+
+
+
+```{r}
+data_balanced_under <- ovun.sample(is_open ~ ., data = train.set, method = "under", N = 3386, seed = 1)$data
+table(data_balanced_under$is_open)
+```
+
+
+```{r}
+data_balanced_both <- ovun.sample(is_open ~ ., data = train.set, method = "both", p=0.5, 
+                                  N=7293, seed = 1)$data
+#p refers to the probability of positive class in newly generated sample.
+
+table(data_balanced_both$is_open)
+```
+
+
+
+```{r}
+data.rose <- ROSE(is_open ~ ., data = train.set, seed = 1)$data
+table(data.rose$is_open)
+```
+
+
+
+```{r}
+#build decision tree models
+tree.rose <- rpart(is_open ~ ., data = data.rose)
+tree.over <- rpart(is_open ~ ., data = data_balanced_over)
+tree.under <- rpart(is_open ~ ., data = data_balanced_under)
+tree.both <- rpart(is_open ~ ., data = data_balanced_both)
+
+#make predictions on unseen data
+pred.tree.rose <- predict(tree.rose, newdata = test.set)
+pred.tree.over <- predict(tree.over, newdata = test.set)
+pred.tree.under <- predict(tree.under, newdata = test.set)
+pred.tree.both <- predict(tree.both, newdata = test.set)
+```
+
+
+```{r}
+#AUC ROSE
+roc.curve(test.set$is_open, pred.tree.rose[,2])
+
+#AUC Oversampling
+roc.curve(test.set$is_open, pred.tree.over[,2])
+
+#AUC Undersampling
+roc.curve(test.set$is_open, pred.tree.under[,2])
+
+#AUC Both
+roc.curve(test.set$is_open, pred.tree.both[,2])
+```
+
+
+
+```{r}
+ROSE.holdout <- ROSE.eval(is_open ~ ., data = train.set, learner = rpart, method.assess = "holdout", extr.pred = function(obj)obj[,2], seed = 1)
+ROSE.holdout
+```
+
+
+
+```{r}
+ROSE.boot <- ROSE.eval(is_open ~ ., data = train.set, learner = rpart, method.assess = "BOOT", extr.pred = function(obj)obj[,2], seed = 1)
+ROSE.boot
+```
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
