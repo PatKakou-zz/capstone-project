@@ -26,7 +26,6 @@ library(shapefiles)
 library(leaflet)
 library(stringi)
 library(ngram)
-library(qdap)
 library(rgdal)
 library(plotly)
 library(data.table)
@@ -272,7 +271,7 @@ In the Great Toronto Area (GTA), most of the businesses are located in Downtown 
 center_long = median(business$longitude, na.rm = TRUE)
 center_lat = median(business$latitude, na.rm = TRUE)
 
-leaflet(business %>% filter(is_open == 'yes')) %>% 
+leaflet(business %>% filter(is_open == 1)) %>% 
       addTiles()%>%
       #addProviderTiles("Esri.NatGeoWorldMap") %>%
       addCircles(lng = ~ longitude, lat = ~latitude, radius = ~sqrt(review_count), color = 'green') %>%
@@ -285,12 +284,14 @@ leaflet(business %>% filter(is_open == 'yes')) %>%
 center_long = median(business$longitude, na.rm = TRUE)
 center_lat = median(business$latitude, na.rm = TRUE)
 
-leaflet(business %>% filter(is_open == 'no')) %>% 
+leaflet(business %>% filter(is_open == 0)) %>% 
       addTiles()%>%
       #addProviderTiles("Esri.NatGeoWorldMap") %>%
       addCircles(lng = ~ longitude, lat = ~latitude, radius = ~sqrt(review_count), color = 'purple') %>%
       setView(lng = center_long, lat = center_lat, zoom = 10)
 ```
+
+We will check more by neihgbohood to get if a specificlocation can impact a categories of business.
 
 
 ### Leading Business Categories:
@@ -320,7 +321,7 @@ p <- ggplot(categorie, aes(x = reorder(categories, n), y = n)) +
 ggplotly(p)
 ```
 
-More than 60% of the rated businesses have their activities related to food.
+There are 891 different categories of Businesses reviewed in Yelp and more than 60% of the rated businesses have their activities related to food.
 __________________
 
 As in the data set each business is linked to multiple categories, we will create a new feature to count the number of categories per business.
