@@ -189,3 +189,5 @@ class SentimentAnalysis(object):
         joined = '_'.join(words)
         return joined in self.swn_all
 
+
+    
