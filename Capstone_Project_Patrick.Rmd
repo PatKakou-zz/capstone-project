@@ -331,7 +331,7 @@ As in the data set each business is linked to multiple categories, we will creat
 b_categorie <- business %>% 
                 unnest(categories = str_split(categories, ",")) %>%
                 mutate(categories = str_trim(categories,side = "both")) %>%
-                group_by(business_id, name) %>% 
+                group_by(business_id, name, is_open) %>% 
                 summarize(categorie_count = n()) %>% 
                 arrange(desc(categorie_count))
 
