@@ -1,0 +1,682 @@
+---
+title: "EDA and Model"
+output: 
+  html_notebook:
+    fig_width: 6 
+    fig_height: 4
+    
+---
+
+For organization and processing time purposes I will subset the data again to only include restaurants or places that sell food (excluding groceries) in Toronto. 
+
+```{r}
+knitr::opts_chunk$set(fig.width=12, fig.height=8) 
+```
+
+
+# Load Libraries
+
+```{r}
+library(tidyverse)
+library(descr)
+library(lubridate)
+library(quantreg)
+library(shapefiles)
+library(leaflet)
+library(stringi)
+library(ngram)
+library(rgdal)
+library(plotly)
+library(data.table)
+library(corrplot)
+library(maptools)
+library(rgeos)
+library(plyr)
+library(broom)
+library(scales)
+```
+
+
+# Load Data
+
+```{r}
+business <- read_csv("yelp_toronto_business.csv")
+fsa <- read_csv("toronto_fsa.csv") #
+sentiment <- read_csv("sentiment.csv")
+```
+
+
+```{r}
+# Business data structure
+glimpse(business)
+```
+_______________________
+
+I will approximate the type of businesses I mentinned above by selecting businesses that include the tags "restaurants",  "coffee & tea" and "bakeries" in the Categories variable. 
+
+```{r}
+# Final Dataset for my project
+business <- business %>%
+            filter(
+              grepl("restaurants", categories, ignore.case = TRUE) == TRUE | 
+              grepl("coffee & tea", categories, ignore.case = TRUE) == TRUE | 
+              grepl("bakeries", categories, ignore.case = TRUE) == TRUE)  # no need to add "breakfast & brunch"
+
+glimpse(business)
+
+```
+
+I got 8559 businesses, that represent 47% of my initial dataset.
+
+
+# Exploratory Data Analysis
+
+## Business Data
+
+Now let check the business data set and respond to the questions below:
+
+Does the data contain some missing values?
+What is the ditribution of the variables?
+How are the different variables related to each other?
+
+### Visualization of missing values
+
+```{r}
+# let visualize the percentage of missing values for each feature
+
+missing <- data.table(pmiss = round(sapply(business, function(x) { (sum(is.na(x)) / length(x)) }), 2),
+                      column = names(business))
+  
+ggplotly(
+  ggplot(missing,aes(x = reorder(column, -pmiss), y = pmiss)) +
+      geom_bar(stat = 'identity', fill = 'steelblue') + 
+      scale_y_continuous(labels = scales::percent) + 
+      theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+      labs(
+        x = 'Feature',
+        y = '% missing',
+        title = "Missing data by feature"
+        )
+  )
+
+```
+
+Only the "neighborhood' variable have missing value, and it is about 18%. I will get the neighborhood by join the business data to the toronto fsa data. I got that data from the following link: <https://en.wikipedia.org/wiki/List_of_postal_codes_of_Canada:_M>.
+
+```{r}
+# Joining fsa data with business and sentiment data 
+#to get the borough each business belong to and sentiment score for each review
+fsa <- fsa %>% select(-Neighbourhood) %>% unique()
+
+business <- business %>% 
+              mutate(postal_code = str_sub(postal_code, 1L, 3L)) %>%
+              inner_join(fsa,by = c('postal_code' = 'Postcode')) %>%
+              select(-c('city', 'neighborhood', 'state')) %>% 
+              inner_join(sentiment, by = 'business_id')
+```
+
+
+```{r}
+# Some preprocessing
+
+# business name
+business[which(business$name == "Tim Horton's"),] <- business %>%
+                                                      filter(name == "Tim Horton's") %>%
+                                                      mutate(name = "Tim Hortons")
+
+business[which(business$name == "McDonald's"),] <- business %>%
+                                                      filter(name == "McDonald's") %>%
+                                                      mutate(name = "McDonalds")
+
+# converting "is_open" attribute from integer to factor
+#lowering some character variable, converting "stars" from int to factor
+
+business <- business %>% 
+              mutate(categories = str_to_lower(categories),
+                     name = str_trim(str_to_lower(name),side = 'both'),
+                     Borough = as_factor(str_to_lower(Borough)),
+                     is_open = factor(ifelse(is_open == 1, "yes", "no"), levels = c("yes", "no")), 
+                     postal_code = as_factor(postal_code),
+                     stars = factor(stars)
+                     ) %>%
+              select(is_open, business_id, name, postal_code, Borough, latitude, longitude, categories, stars, review_count, avg_words, avg_sent)
+
+glimpse(business)
+```
+
+```{r}
+# Check again for missing values
+anyNA(business)
+```
+Good, we can go forward.
+
+
+
+## Univariate and bivariate analysis
+
+**Let check the distribution in the target variable.**
+_______________
+How many businesses are open? How many are closed?
+
+```{r}
+# Target variable distribution
+
+ggplotly(
+        ggplot(business, aes(x = is_open)) +
+            geom_bar(aes(fill = is_open)) +
+            theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+            labs(
+              x = 'is_open', 
+              y = 'Number of businesses', 
+              title = "Target variable distribution"
+              )
+        )
+```
+
+
+5776 businesses are open (68%) and 2750 closed (32%). Our target variable is imbalanced but still correct to run our model. Otherwise we do some oversampling or undersampling technique. This can be done using the ROSE package.
+_________________________
+
+```{r}
+# Target variable distribution by Borough
+ggplotly(
+        ggplot(business, aes(x = Borough)) +
+                geom_bar(aes(fill = is_open), position = 'dodge') +
+                scale_fill_brewer(palette = "Spectral") +
+                theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+                labs(
+                  x = 'Borough', 
+                  y = 'Number of businesses', 
+                  title = "Number of closed and open businesses by Borough"
+                  )
+        )
+
+```
+
+```{r}
+# Closed businesses percentage by Borough
+
+ratio_closed <- business %>%
+                  select(Borough, is_open) %>%
+                  mutate(is_open = is_open) %>%
+                  group_by(Borough, is_open) %>%
+                  dplyr::summarize(n = n()) %>%
+                  dplyr::mutate(ratio = round(n * 100 / sum(n),2))
+  
+ggplotly(
+        ggplot(ratio_closed %>% filter(is_open == 'no'),aes(x = reorder(Borough, -ratio), y = ratio)) +
+          geom_bar(stat = 'identity', aes(fill = Borough)) + 
+          scale_y_continuous() + 
+          theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+          labs(
+            x = 'Borough',
+            y = '% closed businesses',
+            title = "Closed businesses percentage by Borough"
+            )
+        )
+```
+
+
+**Does business closure depend on rating?**
+
+```{r}
+# visualizing the number of business per rating star
+
+p1 <- ggplotly(
+        ggplot(business, mapping = aes(stars)) +
+        geom_bar(fill = 'darkblue') +
+        labs( x = "Star rating", y = "Number of businesses", title ="Star rating distribution business open/closed")
+        )
+
+
+
+p2 <- ggplotly(
+        ggplot(business, mapping = aes(stars, fill = is_open)) +
+        geom_bar(position = "dodge") +
+        labs( x = "Star rating", y = "Number of businesses", title ="Star rating distribution business open/closed")
+        )
+
+
+subplot(p1, p2, nrows = 1, margin = 0.02, shareX = TRUE, shareY = TRUE, titleX = TRUE, titleY = TRUE)
+#ggsave("stars_dist2.png", width = 5, height = 5)
+```
+
+Around 70% of the businesses got a rating between 3 and 4.5.
+From the graph above, we can gather that the distribution of businesses per rating has the same shape for 'open' businesses and 'closed'  businesses.
+One assumption we can make is that ratings has not much impact on a business closure. We will confirm that or not later.
+
+_______________
+
+**Let visualize if "closed" Businesses received less reviews, and if rating are correlated with the number of reviews.**
+
+```{r}
+# The distribution of reviews
+#we have applied log since the distribution is skewed
+
+p1 <- ggplotly(
+        ggplot(business, aes(x = review_count)) + 
+          geom_histogram(bins = 50,binwidth = 0.1, fill = 'darkgreen') +
+          scale_x_log10() +
+          scale_y_log10() +
+          labs(title ="Distribution of reviews")
+        )
+
+p2 <- ggplotly(
+        ggplot(business, aes(x = review_count, fill = as.factor(is_open))) + 
+          geom_histogram(bins = 50,binwidth = 0.1, position = 'dodge') +
+          scale_x_log10() +
+          scale_y_log10() +
+          labs(title ="Distribution of reviews")
+        )
+
+
+subplot(p1, p2, nrows = 1, margin = 0.02, shareX = TRUE, shareY = TRUE, titleX = TRUE, titleY = TRUE)
+#ggsave("reviews_dist.png", width = 10, height = 5)
+
+```
+
+ 
+
+```{r}
+# visualizing the number of review per rating star
+
+p1 <- ggplotly(
+       business %>%
+          select(stars, review_count) %>%
+          group_by(stars) %>%
+          dplyr::summarize(review_count = sum(review_count)) %>%
+          ggplot(mapping = aes(stars, review_count)) +
+            geom_col(fill = 'darkgreen') +
+            labs( x = "Star rating", y = "Number of reviews", title ="Number of reviews per rating star")
+        )
+
+p2 <- ggplotly(
+       business %>%
+          select(stars, is_open, review_count) %>%
+          group_by(stars, is_open) %>%
+          dplyr::summarize(review_count = sum(review_count))%>%
+        ggplot(business, mapping = aes(stars, review_count, fill = is_open)) +
+          geom_col(position = 'dodge') +
+          labs( x = "Star rating", y = "Number of reviews", title ="Number of reviews per rating star")
+        )
+
+
+subplot(p1, p2, nrows = 2, margin = 0.02, shareX = TRUE, shareY = TRUE, titleX = TRUE, titleY = TRUE)
+
+```
+
+From the graph above, we can gather that the distribution shape of number of reviews per stars is quite the same for 'open' businesses and 'closed'  businesses. As the target variable is not balanced, it's not a supprise that for each rating we observed a significant difference in term of number of reviews.
+
+
+### Geographical visualization
+
+```{r}
+center_long = median(business$longitude, na.rm = TRUE)
+center_lat = median(business$latitude, na.rm = TRUE)
+
+leaflet(business) %>% 
+      addTiles()%>%
+      #addProviderTiles("Esri.NatGeoWorldMap") %>%
+      addCircles(lng = ~ longitude, lat = ~latitude, radius = ~sqrt(review_count)) %>%
+      setView(lng = center_long, lat = center_lat, zoom = 10)
+
+```
+
+In the Great Toronto Area (GTA), most of the businesses are located in Downtown Toronto.
+
+*"open" Businesses* 
+
+```{r}
+center_long = median(business$longitude, na.rm = TRUE)
+center_lat = median(business$latitude, na.rm = TRUE)
+
+leaflet(business %>% filter(is_open == "yes")) %>% 
+      addTiles()%>%
+      #addProviderTiles("Esri.NatGeoWorldMap") %>%
+      addCircles(lng = ~ longitude, lat = ~latitude, radius = ~sqrt(review_count), color = 'green') %>%
+      setView(lng = center_long, lat = center_lat, zoom = 10)
+```
+
+*"closed" Businesses*
+
+```{r}
+center_long = median(business$longitude, na.rm = TRUE)
+center_lat = median(business$latitude, na.rm = TRUE)
+
+leaflet(business %>% filter(is_open == "no")) %>% 
+      addTiles()%>%
+      #addProviderTiles("Esri.NatGeoWorldMap") %>%
+      addCircles(lng = ~ longitude, lat = ~latitude, radius = ~sqrt(review_count), color = 'purple') %>%
+      setView(lng = center_long, lat = center_lat, zoom = 10)
+```
+
+
+## Leading Business Categories:
+
+Let look at the leading business categories in our data set. A business is linked to multiple categories in our dataset, so we have to do a bit of preprocessing, which is simple using the dplyr package.
+
+```{r}
+# Top categories of business in GTA
+
+categorie <- business %>% 
+                unnest(categories = str_split(categories, ",")) %>%
+                dplyr::mutate(categories = str_trim(categories,side = "both")) %>%
+                select(categories) %>% 
+                group_by(categories) %>% 
+                dplyr::summarise(n=n()) %>% 
+                arrange(desc(n))
+
+ggplotly( ggplot(categorie %>% head(10), aes(x = reorder(categories, n), y = n)) +
+      geom_col(aes(fill = n)) +
+      scale_fill_gradientn(colours=RColorBrewer::brewer.pal(11,"Spectral")) +
+      coord_flip() +
+      labs(title ="Top 10 categories"))
+
+```
+
+Not suppringly, restaurants are the most one. 
+
+
+```{r}
+library(tm)
+library(wordcloud)
+
+#I got that code from <https://www.kaggle.com/jessicali9530/best-las-vegas-restaurants-eda>. Thanks to Kaggler Jessica Li.
+
+
+unwanted <- c("food","restaurants")
+
+sortedfoodvector <- removeWords(unlist(str_split(business$categories, ",")), unwanted)
+
+wordcloud(sortedfoodvector, min.freq = 300, ordered.colors = TRUE)
+
+```
+
+
+
+
+
+__________________
+
+As in the data set each business is linked to multiple categories, we will create a new feature to count the number of categories per business.
+
+```{r}
+# Create a new variable to gather the number of categories for each business
+b_categorie <- business %>% 
+                unnest(categories = str_split(categories, ",")) %>%
+                dplyr::mutate(categories = str_trim(categories,side = "both")) %>%
+                group_by(business_id, name, is_open) %>% 
+                dplyr::summarize(categorie_count = n()) %>% 
+                arrange(desc(categorie_count))
+
+#Adding a new variable 'categorie_count' to the business data
+business <- full_join(business, b_categorie)
+                            
+ggplotly(
+  ggplot(b_categorie %>% head(15), aes(x = reorder(name, desc(categorie_count)), y = categorie_count)) +
+      geom_col(aes(fill = categorie_count)) +
+      scale_fill_gradientn(colours=rainbow(11)) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+      labs(
+        x = 'Buiness name',
+        title = "Top 15 businesses with mutiple categories"
+        )
+  )
+
+
+```
+
+**distribution of categorie count**
+
+```{r}
+p1 <- ggplotly(
+        ggplot(data = business, aes(x = as.factor(categorie_count))) + 
+          geom_bar(fill = 'darkgreen') +
+          labs(title ="Distribution of number of categories", y = "Number of businesses")
+        )
+
+p2 <- ggplotly(
+        ggplot(data = business, aes(x = as.factor(categorie_count), fill = is_open)) + 
+          geom_bar(position = 'dodge') +
+          labs(title ="Distribution of number of categories", x = "Number of categories", y = "Number of businesses")
+        )
+
+
+subplot(p1, p2, nrows = 2, margin = 0.02, shareX = TRUE, shareY = TRUE, titleX = TRUE, titleY = TRUE)
+```
+
+70% of the businesses have between 2 to 4 categories.
+
+
+# Top Business names
+
+```{r}
+business_name <- business %>% 
+                  select(name) %>% 
+                  group_by(name) %>% 
+                  dplyr::summarise(n=n()) %>% 
+                  arrange(desc(n))
+
+ggplotly(
+  ggplot(business_name %>% head(15), aes(x = reorder(name, n), y = n)) +
+      geom_col(aes(fill = n)) +
+      scale_fill_gradientn(colours=RColorBrewer::brewer.pal(11,"Spectral")) +
+      coord_flip() +
+      labs(title ="Top 15 business names")
+  )
+
+```
+
+
+From the graph above, I can conclude that it's important to add another feature to classify each business as part of a chain or not. I decided to choose 2 as my threshold that means if there are more than 2 businesses with the same name they are considered part of a chain.
+
+```{r}
+business_name <- business_name %>% 
+                    mutate(chain_status = factor(ifelse(n > 2, "yes", "no"), levels = c("yes", "no"),
+                                                 labels = c("yes", "no")))
+
+business <- business %>%
+              inner_join(
+                business_name %>%
+                  select(-n),
+                by = 'name'
+              )
+```
+
+
+# Building the first model
+
+```{r}
+
+del_cols= c('business_id', 'name', 'postal_code', 'categories')#, "Borough", "latitude", "longitude")
+data = business %>% select(-del_cols)
+glimpse(data)
+```
+
+### Spliting the train set for the model
+
+The function 'createDataPartition' from the ***caret package**** will be used to create a stratified random sample of the data into training and test sets.
+
+```{r}
+# Let's split the data dataset into training and test set.
+library(caret)
+library(caretEnsemble)
+set.seed(34)
+
+data_index <- createDataPartition(data$is_open, p = .7, list = FALSE, times = 1)
+train.set <- data[data_index,]
+test.set <- data[-data_index,]
+
+```
+
+
+```{r}
+train.set %>%
+  filter(is_open == "yes") %>%
+  select_if(is.numeric) %>%
+  cor() %>%
+  corrplot()
+```
+
+
+
+```{r}
+# Reusing trainControl
+
+set.seed(34)
+
+myFolds <- createFolds(train.set$is_open, k = 5)
+
+myControl <- trainControl(
+  summaryFunction = twoClassSummary,
+  classProbs = TRUE,
+  verboseIter = TRUE,
+  savePredictions = TRUE,
+  index = myFolds
+)
+```
+
+```{r}
+# glmnet model
+model_glmnet <- train(
+  is_open ~., train.set,
+  metric = "ROC",
+  method = "glmnet",
+  tuneGrid = expand.grid(alpha = 0:1, lambda = seq(0.0001, 0.1, length = 10)),
+  trControl = myControl
+)
+```
+
+```{r}
+plot(model_glmnet)
+```
+
+```{r}
+glmnet_pred <- predict(model_glmnet, newdata = test.set)
+
+confusionMatrix(glmnet_pred, test.set$is_open) # mode = "prec_recall", positive = "no"
+```
+
+
+```{r}
+# random forest model
+model_rf <- train(
+  is_open ~., train.set,
+  metric = "ROC",
+  method = "ranger",
+  trControl = myControl
+)
+```
+
+```{r}
+plot(model_rf)
+```
+
+```{r}
+rf_pred <- predict(model_rf, newdata = test.set)
+
+confusionMatrix(rf_pred, test.set$is_open) # mode = "prec_recall", positive = "no"
+```
+
+```{r}
+# support vector machine
+model_svm <- train(
+  is_open ~., train.set,
+  metric = "ROC",
+  method = "svmRadial",
+  preProcess = c("zv", "center", "scale", "pca"),
+  trControl = myControl
+)
+```
+
+
+```{r}
+plot(model_svm)
+```
+
+
+```{r}
+svm_pred <- predict(model_svm, newdata = test.set)
+
+confusionMatrix(svm_pred, test.set$is_open) # mode = "prec_recall", positive = "no"
+```
+
+```{r}
+#library(klaR)
+
+# set up tuning grid
+search_grid <- expand.grid(
+  usekernel = c(TRUE, FALSE),
+  fL = 0:5,
+  adjust = seq(0, 5, by = 1)
+)
+
+# naive bayes
+model_nb <- train(
+  is_open ~., train.set,
+  metric = "ROC",
+  method = "nb",
+  trControl = myControl 
+  #tuneGrid = search_grid,
+  #preProc = c("BoxCox", "center", "scale", "pca")
+)
+```
+
+```{r}
+plot(model_nb)
+```
+
+```{r}
+nb_pred <- predict(model_nb, newdata = test.set)
+
+confusionMatrix(nb_pred, test.set$is_open) # mode = "prec_recall", positive = "no"
+```
+
+
+
+```{r}
+model_list <- list(glmnet = model_glmnet,
+                   rf = model_rf,
+                   svm = model_svm,
+                   nb = model_nb)
+
+resamps <- resamples(model_list)
+summary(resamps)
+
+```
+
+```{r}
+library(caretEnsemble)
+dotplot(resamps, metric = "ROC")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

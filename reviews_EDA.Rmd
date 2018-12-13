@@ -1,5 +1,5 @@
 ---
-title: "Reviews analysis"
+title: "Reviews Analysis"
 output: 
   html_notebook:
     fig_width: 12 
@@ -25,10 +25,11 @@ library(corrplot)
 
 ```{r}
 review <- read_csv("yelp_reviews_sentiment.csv") # from the IPython NoteBook 'Yelp_reviews_sentiment.ipynb' where I created a feature to get the sentiment score of each review. I used the ntlk library to do it.
-
-glimpse(review) #visualizing the structure of the review data
 ```
 
+```{r}
+glimpse(review) #visualizing the structure of the review data
+```
 
 ```{r}
 # Are there any missing values in the review data?
@@ -36,8 +37,7 @@ paste("There is :", sum(is.na(review)), "missing values in the review data.")
 ```
 _____________
 
-Sounds good, there are no missing values in the review dataset. Later I will check if some variable will help for building our model. For that data set, I selected the following variables in my data set: 'business_id', 'stars', 'text', 'useful', 'funny', 'cool', 'senti_score'. And I tried to create new features to add to the initial business data.
-
+Sounds good, there are no missing values in the review dataset. Later I will check if some variable will help for building our model. For that, I selected the following variables in the review data: 'business_id', 'stars', 'text', 'useful', 'funny', 'cool', 'senti_score'. And I tried to create new features to add to the initial business data.
 
 ```{r}
 review <- review %>%
@@ -47,14 +47,13 @@ review <- review %>%
 
 glimpse(review)
 
-corr = cor(review[-1])
-corrplot(corr, method = 'number')
+corrplot(cor(review[-1]), method = 'number')
 ```
 
 
 
-Obviously, number of characters and number of words in a review are correlated. From the graph above, we observe a positive correlation between sentiment score and the rating gave by reviewers. That means a postive sentiment is likely to lead to a higher rating star. And there is a negative weak correlation between sentiment score and number of words/character. We can interpret that as people who had a positive experience with a business tend to write short review. 
-
+Obviously, number of characters and number of words in a review are correlated. From the graph above, we observe a positive correlation between sentiment score and the rating gave by reviewers. That means a postive sentiment is likely to lead to a higher rating star. And there is a negative weak correlation between sentiment score and number of words/character. We can interpret that as people who had a positive experience with a business tended to write short review.  
+The variables 'useful', 'funny', and 'cool' represent the number of votes received qualifying a review as respectively useful, funny or cool. 
 
 Now, let visualize the relation between sentiment score and number of words
 
@@ -62,27 +61,44 @@ Now, let visualize the relation between sentiment score and number of words
 #plot_ly(data = review %>% filter(num_words > 0), x = ~num_words, y = ~senti_score)
 
 
-ggplot(sentiment %>% filter(num_words > 0) , aes(x = num_words, senti_score)) +
+ggplot(review %>% filter(num_words > 0) , aes(num_words, senti_score)) +
   geom_point(color='darkblue', position = 'jitter') + 
   scale_x_log10()
 ```
 
-We observe that as the number of word 
-
-
-
+We observe that as the number of word increased the sentiment decreased from the positive side to zero and increased from the negative side to zero. We can gather that when a review is long the sentiment is not clear to gather.
+Let visualize the relation between number of words and 'useful'/'funny'/'cool'.
 
 ```{r}
-#Create a new variables containing the mean of word, characters and sentiment in reviews 
+ggplot(review %>% filter(num_words > 0) , aes(num_words, useful)) +
+  geom_point(color='darkblue', position = 'jitter') + 
+  scale_x_log10()
+
+ggplot(review %>% filter(num_words > 0) , aes(num_words, funny)) +
+  geom_point(color='darkblue', position = 'jitter') + 
+  scale_x_log10()
+
+ggplot(review %>% filter(num_words > 0) , aes(num_words, cool)) +
+  geom_point(color='darkblue', position = 'jitter') + 
+  scale_x_log10()
+```
+
+```{r}
+head(review)
+```
+____________
+As I want to make my prediction on businesses, I will group the reviews by businesses and aggregate the different variables.
+I decided to selected only the senti_score and number of words to add to the business data.
+
+```{r}
+# Grouping reviews by businesses 
 sentiment <- review %>%
-            mutate(no_characters = nchar(review$text), no_words = str_count(review$text, "\\w+"), 
-                   senti_score = round(senti_score, digits = 3)) %>%
-            select(business_id, no_characters, no_words, senti_score) %>% 
             group_by(business_id) %>% 
-            summarise(mean_charac=mean(no_characters), # mean of number of character in reviews per business
-                      mean_words = mean(no_words), # mean of number of words in reviews per business
-                      mean_senti = mean(senti_score) # mean of sentiment score per business
+            summarise(
+                      avg_words = round(mean(num_words), 0),
+                      avg_sent = round(mean(senti_score), 3),
                       )
+write_csv(sentiment, "sentiment.csv")
                   
 ```
 
