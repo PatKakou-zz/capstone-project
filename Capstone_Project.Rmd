@@ -52,7 +52,7 @@ glimpse(business)
 ```
 _______________________
 
-I will approximate the type of businesses I mentinned above by selecting businesses that include the tags "restaurants",  "coffee & tea" and "bakeries" in the Categories variable. 
+I will approximate the type of businesses I mentioned above by selecting businesses that include the tags "restaurants",  "coffee & tea" and "bakeries" in the Categories variable. 
 
 ```{r}
 # Final Dataset for my project
@@ -101,7 +101,7 @@ ggplotly(
 
 ```
 
-Only the "neighborhood' variable have missing value, and it is about 18%. I will get the neighborhood by join the business data to the toronto fsa data. I got that data from the following link: <https://en.wikipedia.org/wiki/List_of_postal_codes_of_Canada:_M>.
+Only the "neighborhood' variable has missing value, and it is about 18%. I will get the neighborhood by join the business data to the toronto fsa data. I got that data from the following link: <https://en.wikipedia.org/wiki/List_of_postal_codes_of_Canada:_M>.
 
 ```{r}
 # Joining fsa data with business and sentiment data 
@@ -139,7 +139,7 @@ business <- business %>%
                      postal_code = as_factor(postal_code),
                      stars = factor(stars)
                      ) %>%
-              select(is_open, business_id, name, postal_code, Borough, latitude, longitude, categories, stars, review_count, avg_words, avg_sent)
+              select(is_open, business_id, name, postal_code, Borough, latitude, longitude, categories, stars, review_count)#, avg_words, avg_sent)
 
 glimpse(business)
 ```
@@ -488,7 +488,7 @@ business <- business %>%
 
 ```{r}
 
-del_cols= c('business_id', 'name', 'postal_code', 'categories')#, "Borough", "latitude", "longitude")
+del_cols= c('business_id', 'name', 'categories')#, 'postal_code',"Borough")#, "latitude", "longitude")
 data = business %>% select(-del_cols)
 glimpse(data)
 ```
@@ -511,6 +511,7 @@ test.set <- data[-data_index,]
 
 
 ```{r}
+
 train.set %>%
   filter(is_open == "yes") %>%
   select_if(is.numeric) %>%
@@ -523,7 +524,7 @@ train.set %>%
 ```{r}
 # Reusing trainControl
 
-set.seed(34)
+set.seed(42)
 
 myFolds <- createFolds(train.set$is_open, k = 5)
 
@@ -534,10 +535,17 @@ myControl <- trainControl(
   savePredictions = TRUE,
   index = myFolds
 )
+
+
+
+#trainControl(method = "repeatedcv", repeats = 5, classProbs = TRUE, summaryFunction = twoClassSummary)
+
 ```
 
 ```{r}
 # glmnet model
+set.seed(100)
+
 model_glmnet <- train(
   is_open ~., train.set,
   metric = "ROC",
@@ -554,12 +562,18 @@ plot(model_glmnet)
 ```{r}
 glmnet_pred <- predict(model_glmnet, newdata = test.set)
 
-confusionMatrix(glmnet_pred, test.set$is_open) # mode = "prec_recall", positive = "no"
+glmnet_pred <- predict(model_glmnet, newdata = head(test.set), type = "prob")
+glmnet_pred <- as_factor(ifelse(predict(model_glmnet, test.set, type = "prob")[,"yes"] >= 0.6, "yes", "no"))
+
+
+confusionMatrix(glmnet_pred, test.set$is_open)#, mode = "prec_recall", positive = "no")
 ```
 
 
 ```{r}
 # random forest model
+set.seed(100)
+
 model_rf <- train(
   is_open ~., train.set,
   metric = "ROC",
@@ -573,9 +587,20 @@ plot(model_rf)
 ```
 
 ```{r}
-rf_pred <- predict(model_rf, newdata = test.set)
+roc_imp <- filterVarImp(x = train.set[, -ncol(train.set)], y = train.set$is_open)
+head(roc_imp, 10)
+```
 
-confusionMatrix(rf_pred, test.set$is_open) # mode = "prec_recall", positive = "no"
+```{r}
+varImp(model_glmnet, scale = FALSE)
+```
+
+
+```{r}
+rf_pred <- predict(model_rf, newdata = test.set)
+rf_pred <- as_factor(ifelse(predict(model_rf, test.set, type = "prob")[,"yes"] >= 0.55, "yes", "no"))
+
+confusionMatrix(rf_pred, test.set$is_open)#, mode = "prec_recall")#
 ```
 
 ```{r}
@@ -636,9 +661,10 @@ confusionMatrix(nb_pred, test.set$is_open) # mode = "prec_recall", positive = "n
 
 ```{r}
 model_list <- list(glmnet = model_glmnet,
-                   rf = model_rf,
-                   svm = model_svm,
-                   nb = model_nb)
+                   rf = model_rf#,
+                   #svm = model_svm,
+                   #nb = model_nb
+                   )
 
 resamps <- resamples(model_list)
 summary(resamps)
@@ -653,22 +679,48 @@ dotplot(resamps, metric = "ROC")
 
 
 
+```{r}
+results <- data.frame(is_open = test.set$is_open)
+results$log <- predict(model_glmnet, test.set, type = "prob")[,"yes"]
+results$rf <- predict(model_rf, test.set, type = "prob")[,"yes"]
+
+head(results)
+```
+
+
+```{r}
+#The lift function does the calculations and the corresponding plot function is used to plot the lift curve (although some call this the gain curve). The value argument creates reference lines:
+
+trellis.par.set(caretTheme())
+result_obj <- lift(is_open ~ log + rf, data = results)
+plot(result_obj, values = 70, auto.key = list(columns = 3,
+                                            lines = TRUE,
+                                            points = FALSE))
+```
+
+
+```{r}
+ggplotly(ggplot(result_obj, values = 60))
+```
 
 
 
 
+```{r}
+trellis.par.set(caretTheme())
+cal_obj <- calibration(is_open ~ log + rf,
+                       data = results,
+                       cuts = 13)
+plot(cal_obj, type = "l", auto.key = list(columns = 3,
+                                          lines = TRUE,
+                                          points = FALSE))
+```
 
 
 
-
-
-
-
-
-
-
-
-
+```{r}
+ggplotly(ggplot(cal_obj))
+```
 
 
 
