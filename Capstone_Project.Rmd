@@ -139,7 +139,7 @@ business <- business %>%
                      postal_code = as_factor(postal_code),
                      stars = factor(stars)
                      ) %>%
-              select(is_open, business_id, name, postal_code, Borough, latitude, longitude, categories, stars, review_count)#, avg_words, avg_sent)
+              select(is_open, business_id, name, postal_code, Borough, latitude, longitude, categories, stars, review_count, avg_words, avg_sent)
 
 glimpse(business)
 ```
@@ -471,16 +471,16 @@ ggplotly(
 From the graph above, I can conclude that it's important to add another feature to classify each business as part of a chain or not. I decided to choose 2 as my threshold that means if there are more than 2 businesses with the same name they are considered part of a chain.
 
 ```{r}
-business_name <- business_name %>% 
+chain <- business_name %>% 
                     mutate(chain_status = factor(ifelse(n > 2, "yes", "no"), levels = c("yes", "no"),
                                                  labels = c("yes", "no")))
 
-business <- business %>%
-              inner_join(
-                business_name %>%
-                  select(-n),
-                by = 'name'
-              )
+data_for_model <- business %>%
+                    inner_join(
+                      chain %>%
+                        select(-n),
+                      by = 'name'
+                      )
 ```
 
 
@@ -489,7 +489,7 @@ business <- business %>%
 ```{r}
 
 del_cols= c('business_id', 'name', 'categories')#, 'postal_code',"Borough")#, "latitude", "longitude")
-data = business %>% select(-del_cols)
+data = data_for_model %>% select(-del_cols)
 glimpse(data)
 ```
 
@@ -503,10 +503,14 @@ library(caret)
 library(caretEnsemble)
 set.seed(34)
 
-data_index <- createDataPartition(data$is_open, p = .7, list = FALSE, times = 1)
+data_index <- createDataPartition(data$is_open, p = .8, list = FALSE)
 train.set <- data[data_index,]
 test.set <- data[-data_index,]
 
+```
+
+```{r}
+sum(is.na(train.set))
 ```
 
 
@@ -524,15 +528,16 @@ train.set %>%
 ```{r}
 # Reusing trainControl
 
-set.seed(42)
+set.seed(34)
 
 myFolds <- createFolds(train.set$is_open, k = 5)
 
 myControl <- trainControl(
   summaryFunction = twoClassSummary,
   classProbs = TRUE,
-  verboseIter = TRUE,
+  verboseIter = FALSE,
   savePredictions = TRUE,
+  #search = "random",
   index = myFolds
 )
 
@@ -544,19 +549,19 @@ myControl <- trainControl(
 
 ```{r}
 # glmnet model
-set.seed(100)
+set.seed(34)
 
-model_glmnet <- train(
-  is_open ~., train.set,
-  metric = "ROC",
-  method = "glmnet",
-  tuneGrid = expand.grid(alpha = 0:1, lambda = seq(0.0001, 0.1, length = 10)),
-  trControl = myControl
-)
+model_glmnet <- train(is_open ~., train.set,
+                      metric = "ROC",
+                      method = "glmnet",
+                      tuneGrid = expand.grid(alpha = 0:1, 
+                                             lambda = seq(0.0001, 0.1, length = 10)),
+                      trControl = myControl
+                      )
 ```
 
 ```{r}
-plot(model_glmnet)
+plot(model_glmnet) #, metric = "Accuracy")
 ```
 
 ```{r}
@@ -572,7 +577,7 @@ confusionMatrix(glmnet_pred, test.set$is_open)#, mode = "prec_recall", positive 
 
 ```{r}
 # random forest model
-set.seed(100)
+set.seed(34)
 
 model_rf <- train(
   is_open ~., train.set,
@@ -603,15 +608,61 @@ rf_pred <- as_factor(ifelse(predict(model_rf, test.set, type = "prob")[,"yes"] >
 confusionMatrix(rf_pred, test.set$is_open)#, mode = "prec_recall")#
 ```
 
+
+```{r}
+#library(gbm)
+#gbm: Generalized Boosted Regression Models
+
+#gbmGrid <-  expand.grid(interaction.depth = c(1, 5, 9), 
+ #                       n.trees = (1:30)*50, 
+ #                       shrinkage = 0.1,
+  #                      n.minobsinnode = 20)
+set.seed(34)
+model_gbm <- train(is_open ~ ., data = train.set, 
+                 method = "gbm", 
+                 #tuneGrid = gbmGrid,
+                 trControl = myControl,
+                 metric = "ROC"
+                 )
+
+
+
+
+
+```
+
+
+```{r}
+plot(model_gbm)
+```
+
+```{r}
+gbm_pred <- predict(model_gbm, newdata = test.set)
+
+gbm_pred <- predict(model_gbm, newdata = head(test.set), type = "prob")
+gbm_pred <- as_factor(ifelse(predict(model_gbm, test.set, type = "prob")[,"yes"] >= 0.6, "yes", "no"))
+
+
+confusionMatrix(gbm_pred, test.set$is_open)#, mode = "prec_recall", positive = "no")
+```
+
+
+
+
+
+
 ```{r}
 # support vector machine
+set.seed(34)
 model_svm <- train(
   is_open ~., train.set,
   metric = "ROC",
   method = "svmRadial",
   preProcess = c("zv", "center", "scale", "pca"),
+  #tuneLength = 8,
   trControl = myControl
 )
+
 ```
 
 
@@ -630,13 +681,15 @@ confusionMatrix(svm_pred, test.set$is_open) # mode = "prec_recall", positive = "
 #library(klaR)
 
 # set up tuning grid
-search_grid <- expand.grid(
-  usekernel = c(TRUE, FALSE),
-  fL = 0:5,
-  adjust = seq(0, 5, by = 1)
-)
+#search_grid <- expand.grid(
+#  usekernel = c(TRUE, FALSE),
+#  fL = 0:5,
+#  adjust = seq(0, 5, by = 1)
+#  )
+
 
 # naive bayes
+set.seed(34)
 model_nb <- train(
   is_open ~., train.set,
   metric = "ROC",
@@ -674,6 +727,7 @@ summary(resamps)
 ```{r}
 library(caretEnsemble)
 dotplot(resamps, metric = "ROC")
+#bwplot(resamps,, metric = "ROC", layout = c(3, 1))
 ```
 
 
