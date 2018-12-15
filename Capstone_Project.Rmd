@@ -488,7 +488,7 @@ data_for_model <- business %>%
 
 ```{r}
 
-del_cols= c('business_id', 'name', 'categories')#, 'postal_code',"Borough")#, "latitude", "longitude")
+del_cols= c('business_id', 'name', 'categories', 'postal_code')#,"Borough")#, "latitude", "longitude")
 data = data_for_model %>% select(-del_cols)
 glimpse(data)
 ```
@@ -511,6 +511,7 @@ test.set <- data[-data_index,]
 
 ```{r}
 sum(is.na(train.set))
+sum(is.na(test.set))
 ```
 
 
@@ -520,7 +521,7 @@ train.set %>%
   filter(is_open == "yes") %>%
   select_if(is.numeric) %>%
   cor() %>%
-  corrplot()
+  corrplot(method = "number")
 ```
 
 
@@ -561,19 +562,40 @@ model_glmnet <- train(is_open ~., train.set,
 ```
 
 ```{r}
-plot(model_glmnet) #, metric = "Accuracy")
+plot(model_glmnet)
+```
+
+
+```{r}
+#glmnet_pred <- predict(model_glmnet, newdata = test.set)
+
+#glmnet_pred <- predict(model_glmnet, newdata = head(test.set), type = "prob")
+glmnet_pred <- as_factor(ifelse(predict(model_glmnet, test.set, type = "prob")[,"yes"] >= 0.55, "yes", "no"))
+
+
+confusionMatrix(glmnet_pred, test.set$is_open, mode = "prec_recall", positive = "no")
 ```
 
 ```{r}
-glmnet_pred <- predict(model_glmnet, newdata = test.set)
-
-glmnet_pred <- predict(model_glmnet, newdata = head(test.set), type = "prob")
-glmnet_pred <- as_factor(ifelse(predict(model_glmnet, test.set, type = "prob")[,"yes"] >= 0.6, "yes", "no"))
-
-
-confusionMatrix(glmnet_pred, test.set$is_open)#, mode = "prec_recall", positive = "no")
+library(pROC)
+#Draw the ROC curve 
+glmnet.probs <- predict(model_glmnet, test.set,type="prob")
+#head(xgb.probs)
+ 
+glmnet.ROC <- roc(predictor=glmnet.probs$yes,
+               response=test.set$is_open,
+               levels=rev(levels(test.set$is_open)))
+glmnet.ROC$auc
+# Area under the curve: 0.7592
+ 
+plot(glmnet.ROC,main="glmnet ROC")
+plot(varImp(model_glmnet))
 ```
 
+```{r}
+#Plot the propability of poor prediction
+histogram(~glmnet.probs$yes|test.set$is_open,xlab="Probability of Poor prediction")
+```
 
 ```{r}
 # random forest model
@@ -592,21 +614,34 @@ plot(model_rf)
 ```
 
 ```{r}
-roc_imp <- filterVarImp(x = train.set[, -ncol(train.set)], y = train.set$is_open)
-head(roc_imp, 10)
+#rf_pred <- predict(model_rf, newdata = test.set)
+rf_pred <- as_factor(ifelse(predict(model_rf, test.set, type = "prob")[,"yes"] >= 0.6, "yes", "no"))
+
+confusionMatrix(rf_pred, test.set$is_open, mode = "prec_recall", positive = "no")#
 ```
 
 ```{r}
-varImp(model_glmnet, scale = FALSE)
+#Draw the ROC curve 
+rf.probs <- predict(model_rf, test.set,type="prob")
+ 
+rf.ROC <- roc(predictor = rf.probs$yes,
+               response = test.set$is_open,
+               levels = rev(levels(test.set$is_open)))
+rf.ROC$auc
+# Area under the curve: 0.7592
+ 
+plot(rf.ROC,main="rf ROC")
 ```
+
 
 
 ```{r}
-rf_pred <- predict(model_rf, newdata = test.set)
-rf_pred <- as_factor(ifelse(predict(model_rf, test.set, type = "prob")[,"yes"] >= 0.55, "yes", "no"))
+#Plot the propability of poor segmentation
+histogram(~rf.probs$yes|test.set$is_open,xlab="Probability of Poor prediction")
 
-confusionMatrix(rf_pred, test.set$is_open)#, mode = "prec_recall")#
 ```
+
+
 
 
 ```{r}
@@ -622,12 +657,9 @@ model_gbm <- train(is_open ~ ., data = train.set,
                  method = "gbm", 
                  #tuneGrid = gbmGrid,
                  trControl = myControl,
-                 metric = "ROC"
+                 metric = "ROC",
+                 verbose = FALSE
                  )
-
-
-
-
 
 ```
 
@@ -637,13 +669,13 @@ plot(model_gbm)
 ```
 
 ```{r}
-gbm_pred <- predict(model_gbm, newdata = test.set)
+#gbm_pred <- predict(model_gbm, newdata = test.set)
 
-gbm_pred <- predict(model_gbm, newdata = head(test.set), type = "prob")
+#gbm_pred <- predict(model_gbm, newdata = head(test.set), type = "prob")
 gbm_pred <- as_factor(ifelse(predict(model_gbm, test.set, type = "prob")[,"yes"] >= 0.6, "yes", "no"))
 
 
-confusionMatrix(gbm_pred, test.set$is_open)#, mode = "prec_recall", positive = "no")
+confusionMatrix(gbm_pred, test.set$is_open, mode = "prec_recall", positive = "no")
 ```
 
 
@@ -672,9 +704,12 @@ plot(model_svm)
 
 
 ```{r}
-svm_pred <- predict(model_svm, newdata = test.set)
+#svm_pred <- predict(model_svm, newdata = test.set)
 
-confusionMatrix(svm_pred, test.set$is_open) # mode = "prec_recall", positive = "no"
+#svm_pred <- predict(model_gbm, newdata = head(test.set), type = "prob")
+svm_pred <- as_factor(ifelse(predict(model_svm, test.set, type = "prob")[,"yes"] >= 0.6, "yes", "no"))
+
+confusionMatrix(svm_pred, test.set$is_open, mode = "prec_recall", positive = "no")
 ```
 
 ```{r}
@@ -694,9 +729,9 @@ model_nb <- train(
   is_open ~., train.set,
   metric = "ROC",
   method = "nb",
-  trControl = myControl 
+  trControl = myControl, 
   #tuneGrid = search_grid,
-  #preProc = c("BoxCox", "center", "scale", "pca")
+  #preProc = c("zv", "center", "scale", "pca")
 )
 ```
 
@@ -705,18 +740,46 @@ plot(model_nb)
 ```
 
 ```{r}
-nb_pred <- predict(model_nb, newdata = test.set)
+#nb_pred <- predict(model_nb, newdata = test.set)
 
-confusionMatrix(nb_pred, test.set$is_open) # mode = "prec_recall", positive = "no"
+#nb_pred <- predict(model_nb, newdata = head(test.set), type = "prob")
+nb_pred <- as_factor(ifelse(predict(model_nb, test.set, type = "prob")[,"yes"] >= 0.6, "yes", "no"))
+confusionMatrix(nb_pred, test.set$is_open)#, mode = "prec_recall", positive = "no")
 ```
 
 
 
 ```{r}
+#Using treebag 
+train.bagg <- train(is_open ~., train.set,
+                   method = "treebag",
+                   metric = "ROC",
+                   trControl = myControl,
+                   importance = TRUE,
+                   search = "random")
+```
+
+
+
+```{r}
+
+treebag_pred <- as_factor(ifelse(predict(train.bagg, test.set, type = "prob")[,"yes"] >= 0.6, "yes", "no"))
+
+confusionMatrix(treebag_pred, test.set$is_open) # mode = "prec_recall", positive = "no"
+```
+
+```{r}
+plot(varImp(train.bagg))
+```
+
+
+```{r}
 model_list <- list(glmnet = model_glmnet,
-                   rf = model_rf#,
-                   #svm = model_svm,
-                   #nb = model_nb
+                   rf = model_rf,
+                   svm = model_svm,
+                   nb = model_nb,
+                   gbm = model_gbm,
+                    treebag =train.bagg
                    )
 
 resamps <- resamples(model_list)
@@ -727,7 +790,6 @@ summary(resamps)
 ```{r}
 library(caretEnsemble)
 dotplot(resamps, metric = "ROC")
-#bwplot(resamps,, metric = "ROC", layout = c(3, 1))
 ```
 
 
@@ -737,23 +799,20 @@ dotplot(resamps, metric = "ROC")
 results <- data.frame(is_open = test.set$is_open)
 results$log <- predict(model_glmnet, test.set, type = "prob")[,"yes"]
 results$rf <- predict(model_rf, test.set, type = "prob")[,"yes"]
+results$svm <- predict(model_svm, test.set, type = "prob")[,"yes"]
+results$nb <- predict(model_nb, test.set, type = "prob")[,"yes"]
+results$treebag <- predict(train.bagg, test.set, type = "prob")[,"yes"]
 
 head(results)
 ```
 
 
 ```{r}
+#trellis.par.set(caretTheme())
+
 #The lift function does the calculations and the corresponding plot function is used to plot the lift curve (although some call this the gain curve). The value argument creates reference lines:
 
-trellis.par.set(caretTheme())
-result_obj <- lift(is_open ~ log + rf, data = results)
-plot(result_obj, values = 70, auto.key = list(columns = 3,
-                                            lines = TRUE,
-                                            points = FALSE))
-```
-
-
-```{r}
+result_obj <- lift(is_open ~ log + rf + svm + nb + treebag, data = results)
 ggplotly(ggplot(result_obj, values = 60))
 ```
 
@@ -762,20 +821,13 @@ ggplotly(ggplot(result_obj, values = 60))
 
 ```{r}
 trellis.par.set(caretTheme())
-cal_obj <- calibration(is_open ~ log + rf,
+cal_obj <- calibration(is_open ~ log + rf + svm + nb + treebag,
                        data = results,
                        cuts = 13)
 plot(cal_obj, type = "l", auto.key = list(columns = 3,
                                           lines = TRUE,
                                           points = FALSE))
 ```
-
-
-
-```{r}
-ggplotly(ggplot(cal_obj))
-```
-
 
 
 

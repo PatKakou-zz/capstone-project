@@ -1,10 +1,11 @@
 ---
 title: "Reviews Analysis"
-output: 
+output:
   html_notebook:
-    fig_width: 12 
     fig_height: 8
-    
+    fig_width: 12
+  html_document:
+    df_print: paged
 ---
 
 In this notebook, I explore the review data set and do some feature engineering for the business data which will be used to train my model.
@@ -21,7 +22,7 @@ library(data.table)
 library(corrplot)
 ```
 
-# Loading reveiwe data
+# Loading review data
 
 ```{r}
 review <- read_csv("yelp_reviews_sentiment.csv") # from the IPython NoteBook 'Yelp_reviews_sentiment.ipynb' where I created a feature to get the sentiment score of each review. I used the ntlk library to do it.
@@ -58,12 +59,25 @@ The variables 'useful', 'funny', and 'cool' represent the number of votes receiv
 Now, let visualize the relation between sentiment score and number of words
 
 ```{r}
+ggplot(review , aes( senti_score)) +
+  geom_histogram(fill='darkgreen', color = 'black', binwidth = .02)
+```
+
+
+
+
+```{r}
 #plot_ly(data = review %>% filter(num_words > 0), x = ~num_words, y = ~senti_score)
 
 
 ggplot(review %>% filter(num_words > 0) , aes(num_words, senti_score)) +
   geom_point(color='darkblue', position = 'jitter') + 
-  scale_x_log10()
+  scale_x_log10() +
+  labs(
+    x = 'number of words per review',
+    y = 'sentiment score per review',
+    title = "Relation between sentiment score and number of words"
+     )
 ```
 
 We observe that as the number of word increased the sentiment decreased from the positive side to zero and increased from the negative side to zero. We can gather that when a review is long the sentiment is not clear to gather.
